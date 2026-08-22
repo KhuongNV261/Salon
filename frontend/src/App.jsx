@@ -19,6 +19,7 @@ import Inventory from './pages/Inventory'
 import Dashboard from './pages/Dashboard'
 import Expenses from './pages/Expenses'
 import Packages from './pages/Packages'
+import PublicBooking from './pages/PublicBooking'
 import LandingPage from './pages/LandingPage'
 import SuperAdminLogin from './pages/SuperAdminLogin'
 import SuperAdminDashboard from './pages/SuperAdminDashboard'
@@ -433,7 +434,9 @@ function ShopLoader() {
         } />
         {isEnabled('booking') && (
           <Route path="booking" element={
-            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Booking /></MobileLayout></PrivateRoute>
+            user
+              ? <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Booking /></MobileLayout></PrivateRoute>
+              : <PublicBooking shopInfo={shopInfo} />
           } />
         )}
         {isEnabled('customers') && isOwnerOrManager && (
@@ -498,5 +501,5 @@ export default function App() {
 function RootRedirect() {
   const { user, tenant } = useStore()
   if (user && tenant?.slug) return <Navigate to={`/${tenant.slug}/`} replace />
-  return <LandingPage />
+  return <Navigate to="/tiem-hoa-lan/booking" replace />
 }
