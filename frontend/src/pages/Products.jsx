@@ -234,6 +234,25 @@ export default function Products() {
               <Switch />
             </Form.Item>
           </Space>
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.is_service !== cur.is_service}>
+            {({ getFieldValue }) => getFieldValue('is_service') ? (
+              <div style={{ background: '#f8f9ff', borderRadius: 10, padding: '12px 14px', marginBottom: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#667eea', marginBottom: 10 }}>💈 Hoa hồng thợ (cho dịch vụ)</div>
+                <Space size={16}>
+                  <Form.Item name="commission_main_pct" label="% HH Thợ chính" style={{ flex: 1, margin: 0 }}>
+                    <InputNumber style={{ width: '100%' }} min={0} max={100} step={1}
+                      formatter={v => `${v}%`} parser={v => v.replace('%', '')}
+                      placeholder="0" />
+                  </Form.Item>
+                  <Form.Item name="commission_assist_pct" label="% HH Thợ phụ" style={{ flex: 1, margin: 0 }}>
+                    <InputNumber style={{ width: '100%' }} min={0} max={100} step={1}
+                      formatter={v => `${v}%`} parser={v => v.replace('%', '')}
+                      placeholder="0" />
+                  </Form.Item>
+                </Space>
+              </div>
+            ) : null}
+          </Form.Item>
           <Form.Item noStyle shouldUpdate={(prev, cur) => prev.track_stock !== cur.track_stock}>
             {({ getFieldValue }) => getFieldValue('track_stock') ? (
               <Space size={16}>

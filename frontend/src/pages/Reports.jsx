@@ -45,6 +45,9 @@ export default function Reports() {
   const [topProducts, setTopProducts] = useState([])
   const [debtList, setDebtList] = useState([])
   const [staffData, setStaffData] = useState([])
+  const [commissionData, setCommissionData] = useState({ summary: [], total: 0 })
+  const [commissionMonth, setCommissionMonth] = useState(dayjs().format('YYYY-MM'))
+  const [commissionLoading, setCommissionLoading] = useState(false)
   const [dateRange, setDateRange] = useState([dayjs().startOf('month'), dayjs()])
   const [loading, setLoading] = useState(false)
   const [todayLoading, setTodayLoading] = useState(false)
@@ -77,6 +80,14 @@ export default function Reports() {
       setDebtList(debt.data)
       setStaffData(staff.data)
     } finally { setLoading(false) }
+  }
+
+  const loadCommission = async (month) => {
+    setCommissionLoading(true)
+    try {
+      const r = await api.get('/api/reports/commission', { params: { month } })
+      setCommissionData(r.data || { summary: [], total: 0 })
+    } catch {} finally { setCommissionLoading(false) }
   }
 
   const filterPanel = (
@@ -276,6 +287,63 @@ export default function Reports() {
                     </div>
                   </div>
                 )}
+              </div>
+            )
+          },
+          {
+            key: 'commission',
+            label: '💸 Hoa hồng',
+            children: (
+              <div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                  <DatePicker
+                    value={dayjs(commissionMonth)}
+                    onChange={v => {
+                      const m = v.format('YYYY-MM')
+                      setCommissionMonth(m)
+                      loadCommission(m)
+                    }}
+                    picker="month"
+                    format="MM/YYYY"
+                    style={{ flex: 1 }}
+                    allowClear={false}
+                  />
+                  <button onClick={() => loadCommission(commissionMonth)} style={{
+                    background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff',
+                    border: 'none', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600
+                  }}>Xem</button>
+                </div>
+                {commissionLoading ? <Skeleton active paragraph={{ rows: 5 }} /> :
+                  commissionData.summary.length === 0 ? (
+                    <div className="m-card"><Empty description="Chưa có dữ liệu hoa hồng — Nhấn Xem để tải" /></div>
+                  ) : (
+                    <>
+                      <div style={{ background: 'linear-gradient(135deg, #fa8c16, #ffa940)', borderRadius: 14, padding: '14px 20px', marginBottom: 12, color: '#fff', textAlign: 'center' }}>
+                        <div style={{ fontSize: 12, opacity: 0.85 }}>Tổng hoa hồng tháng {commissionMonth.slice(5)}/{commissionMonth.slice(0,4)}</div>
+                        <div style={{ fontSize: 26, fontWeight: 900 }}>{fmtMoney(commissionData.total)}</div>
+                      </div>
+                      {commissionData.summary.map((staff, i) => (
+                        <div key={staff.staff_name + i} className="m-card" style={{ marginBottom: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <div style={{ fontWeight: 700, fontSize: 14 }}>
+                              {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`} {staff.staff_name}
+                            </div>
+                            <div style={{ fontWeight: 800, fontSize: 15, color: '#fa8c16' }}>{fmtMoney(staff.total_commission)}</div>
+                          </div>
+                          {(staff.items || []).slice(0, 3).map((item, j) => (
+                            <div key={j} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#666', padding: '4px 0', borderBottom: '1px dashed #f5f5f5' }}>
+                              <span>{item.product_name} <Tag style={{ fontSize: 10 }}>{item.role === 'main' ? 'Chính' : 'Phụ'}</Tag></span>
+                              <span style={{ fontWeight: 600, color: '#fa8c16' }}>{fmtMoney(item.commission_amount)}</span>
+                            </div>
+                          ))}
+                          {(staff.items || []).length > 3 && (
+                            <div style={{ fontSize: 11, color: '#aaa', marginTop: 4, textAlign: 'right' }}>+{staff.items.length - 3} dịch vụ khác</div>
+                          )}
+                        </div>
+                      ))}
+                    </>
+                  )
+                }
               </div>
             )
           },

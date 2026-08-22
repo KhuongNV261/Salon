@@ -136,6 +136,14 @@ function TimelineView({ appointments, stylists, selectedDate, shopSettings, onMo
     const rect = containerRef.current.getBoundingClientRect()
     const y = e.clientY - rect.top
     const newMin = getMinFromY(Math.max(0, Math.min(y, containerH - 1)))
+    
+    // Check quá khứ
+    const isPastDate = dayjs(selectedDate).isBefore(dayjs(), 'day')
+    if (isPastDate || (isToday && newMin < nowMin)) {
+      message.warning('Không thể đặt lịch vào thời gian trong quá khứ!')
+      return
+    }
+
     const h = String(Math.floor(newMin / 60)).padStart(2, '0')
     const m = String(newMin % 60).padStart(2, '0')
     onNewApt(stylist, `${h}:${m}`)
@@ -195,6 +203,20 @@ function TimelineView({ appointments, stylists, selectedDate, shopSettings, onMo
 
         {/* Columns */}
         <div ref={containerRef} style={{ display: 'flex', position: 'relative', flex: 1, height: containerH }}>
+          {/* Gray out past area */}
+          {dayjs(selectedDate).isBefore(dayjs(), 'day') && (
+            <div style={{
+              position: 'absolute', left: 0, right: 0, top: 0, height: containerH,
+              background: 'rgba(0,0,0,0.06)', zIndex: 5, pointerEvents: 'none'
+            }} />
+          )}
+          {isToday && nowTop > 0 && (
+            <div style={{
+              position: 'absolute', left: 0, right: 0, top: 0, height: Math.min(nowTop, containerH),
+              background: 'rgba(0,0,0,0.06)', zIndex: 5, pointerEvents: 'none'
+            }} />
+          )}
+
           {/* Now line */}
           {isToday && nowTop >= 0 && nowTop <= containerH && (
             <div style={{
@@ -236,27 +258,40 @@ function TimelineView({ appointments, stylists, selectedDate, shopSettings, onMo
                   const dur = apt.duration_minutes || 60
                   const height = Math.max((dur / totalMin) * containerH, 28)
                   const cfg = STATUS_CFG[apt.status] || {}
+                  
+                  const isAptPast = dayjs(apt.appointment_time).isBefore(dayjs())
 
                   return (
                     <div
                       key={apt.id}
-                      draggable
-                      onDragStart={(e) => { e.stopPropagation(); handleDragStart(e, apt) }}
-                      onClick={(e) => { e.stopPropagation(); onClickApt(apt) }}
+                      draggable={!isAptPast}
+                      onDragStart={(e) => { 
+                        if (isAptPast) { e.preventDefault(); return }
+                        e.stopPropagation(); handleDragStart(e, apt) 
+                      }}
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if (isAptPast) {
+                          message.warning('Lịch trong quá khứ không thể thao tác tại đây, vui lòng dùng Tab Danh sách')
+                          return
+                        }
+                        onClickApt(apt) 
+                      }}
                       style={{
                         position: 'absolute',
                         top: Math.max(0, top),
                         left: 4, right: 4,
                         height: height - 4,
-                        background: cfg.bg || col.bg,
-                        border: `1.5px solid ${cfg.border || col.border}`,
+                        background: isAptPast ? '#f5f5f5' : (cfg.bg || col.bg),
+                        border: `1.5px solid ${isAptPast ? '#d9d9d9' : (cfg.border || col.border)}`,
                         borderRadius: 8,
                         padding: '4px 6px',
-                        cursor: 'grab',
+                        cursor: isAptPast ? 'not-allowed' : 'grab',
                         zIndex: 10,
                         overflow: 'hidden',
                         boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
                         transition: 'box-shadow 0.15s',
+                        opacity: isAptPast ? 0.65 : 1,
                       }}
                     >
                       <div style={{ fontSize: 11, fontWeight: 700, color: cfg.color, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -307,7 +342,12 @@ function TimelineView({ appointments, stylists, selectedDate, shopSettings, onMo
 /* ─────────────────────────────────────────
    SLOT GRID
 ───────────────────────────────────────── */
-function SlotGrid({ slots, busy, selected, stylistId, totalStylists, onSelect }) {
+function SlotGrid({ slots, busy, selected, stylistId, totalStylists, onSelect, selectedDate }) {
+  const now = dayjs()
+  const isToday = selectedDate === now.format('YYYY-MM-DD')
+  const nowMin = now.hour() * 60 + now.minute()
+  const isPastDate = dayjs(selectedDate).isBefore(now, 'day')
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
       {slots.map(time => {
@@ -315,6 +355,10 @@ function SlotGrid({ slots, busy, selected, stylistId, totalStylists, onSelect })
         let isFree = true
         if (stylistId) isFree = !busyList.includes(stylistId)
         else if (totalStylists > 0) isFree = busyList.length < totalStylists
+        
+        const slotMin = timeToMinutes(time)
+        if (isPastDate || (isToday && slotMin < nowMin)) isFree = false
+        
         const isActive = selected === time
 
         return (
@@ -436,7 +480,7 @@ export default function Booking() {
   const [submitting, setSubmitting] = useState(false)
   const [preSelectedStylist, setPreSelectedStylist] = useState(null)
   const [aptDetailModal, setAptDetailModal] = useState(null)
-  const [sendingReminder, setSendingReminder] = useState(false)
+
 
   const allSlots = genSlots(shopSettings.open_time, shopSettings.close_time, shopSettings.slot_interval)
 
@@ -540,16 +584,7 @@ export default function Booking() {
     setAptDetailModal(null)
   }
 
-  const sendManualReminder = async (apt) => {
-    setSendingReminder(true)
-    try {
-      await api.post(`/api/appointments/${apt.id}/send-reminder`)
-      message.success('📱 Đã gửi nhắc nhở!')
-      loadAppointments()
-    } catch (e) {
-      message.error(e.response?.data?.error || 'Lỗi gửi nhắc')
-    } finally { setSendingReminder(false) }
-  }
+
 
   const VIEW_TABS = [
     { key: 'timeline', label: '📆 Timeline' },
@@ -651,6 +686,7 @@ export default function Booking() {
                 stylistId={selectedStylist}
                 totalStylists={stylists.length}
                 onSelect={setSelectedSlot}
+                selectedDate={selectedDate}
               />
             </section>
 
@@ -697,18 +733,41 @@ export default function Booking() {
 
       {/* ── LIST VIEW ── */}
       {view === 'list' && (
-        <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 80px' }}>
-          {appointments.length === 0
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px 80px' }}>
+          {/* Filter bar */}
+          {stylists.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', marginBottom: 10, paddingBottom: 2 }}>
+              <button onClick={() => setSelectedStylist(null)} style={{
+                flexShrink: 0, padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                fontSize: 12, fontWeight: 700,
+                background: !selectedStylist ? 'linear-gradient(135deg,#667eea,#764ba2)' : '#f5f5f5',
+                color: !selectedStylist ? '#fff' : '#666'
+              }}>Tất cả</button>
+              {stylists.map((s, i) => (
+                <button key={s.id} onClick={() => setSelectedStylist(selectedStylist === s.id ? null : s.id)} style={{
+                  flexShrink: 0, padding: '5px 12px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                  fontSize: 12, fontWeight: 700,
+                  background: selectedStylist === s.id ? STYLIST_COLORS[i % STYLIST_COLORS.length].border : '#f5f5f5',
+                  color: selectedStylist === s.id ? '#fff' : '#666'
+                }}>✂️ {s.name}</button>
+              ))}
+            </div>
+          )}
+          {appointments
+            .filter(apt => !selectedStylist || apt.stylist_id === selectedStylist)
+            .length === 0
             ? <div style={{ textAlign: 'center', padding: '50px 0', color: '#94a3b8' }}>
                 <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
                 <div>Chưa có lịch hẹn ngày {dayjs(selectedDate).format('DD/MM')}</div>
               </div>
-            : appointments.map(apt => (
-                <AptCard key={apt.id} apt={apt}
-                  onStatus={updateStatus} onCancel={cancelApt}
-                  onEdit={setAptDetailModal}
-                />
-              ))
+            : appointments
+                .filter(apt => !selectedStylist || apt.stylist_id === selectedStylist)
+                .map(apt => (
+                  <AptCard key={apt.id} apt={apt}
+                    onStatus={updateStatus} onCancel={cancelApt}
+                    onEdit={setAptDetailModal}
+                  />
+                ))
           }
         </div>
       )}
@@ -810,7 +869,7 @@ export default function Booking() {
                 {apt.note && <div style={{ marginTop: 6, fontSize: 12, color: '#888', fontStyle: 'italic' }}>💬 {apt.note}</div>}
               </div>
 
-              {/* Reminder status */}
+              {/* Reminder status - chỉ hiển thị, không có nút gửi */}
               <div style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 padding: '10px 14px', background: apt.reminder_sent ? '#f6ffed' : '#fafafa',
@@ -818,19 +877,8 @@ export default function Booking() {
                 borderRadius: 10, marginBottom: 14
               }}>
                 <span style={{ fontSize: 13, color: apt.reminder_sent ? '#52c41a' : '#888' }}>
-                  {apt.reminder_sent ? '✅ Đã gửi nhắc nhở' : '📱 Chưa gửi nhắc nhở'}
+                  {apt.reminder_sent ? '✅ Đã nhắc' : '🔔 Chưa nhắc'}
                 </span>
-                {!apt.reminder_sent && apt.customer_phone && (
-                  <button onClick={() => sendManualReminder(apt)}
-                    disabled={sendingReminder}
-                    style={{
-                      background: '#667eea', color: '#fff', border: 'none',
-                      borderRadius: 8, padding: '5px 12px', fontSize: 12,
-                      cursor: 'pointer', fontWeight: 600
-                    }}>
-                    {sendingReminder ? '...' : 'Gửi SMS'}
-                  </button>
-                )}
               </div>
 
               {/* Actions */}

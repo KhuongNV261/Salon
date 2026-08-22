@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { Skeleton, Tag, Empty } from 'antd'
+import { Link, useParams } from 'react-router-dom'
+import { Skeleton, Tag, Empty, Button } from 'antd'
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid
@@ -35,16 +36,19 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 export default function Dashboard() {
   const { user } = useStore()
+  const { slug } = useParams()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState(null)
+  const [chartDays, setChartDays] = useState(7)
 
   useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [chartDays])
 
   const load = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/api/dashboard/summary')
+      const res = await api.get('/api/dashboard/summary', { params: { days: chartDays } })
       setData(res.data)
       setLastUpdated(new Date())
     } catch (e) {
@@ -153,10 +157,41 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Biểu đồ 7 ngày */}
+      {/* Thao tác nhanh */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#555', marginBottom: 8 }}>⚡ Thao tác nhanh</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+          <Link to={`/${slug}/staff`} style={{ textDecoration: 'none' }}>
+            <div style={{
+              background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 10,
+              padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10,
+              color: '#389e0d', fontWeight: 600
+            }}>
+              <TeamOutlined style={{ fontSize: 20 }} />
+              <div>
+                <div style={{ fontSize: 14 }}>Thêm & Quản lý nhân viên</div>
+                <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.8 }}>Tạo tài khoản, phân quyền, xem hoa hồng</div>
+              </div>
+            </div>
+          </Link>
+        </div>
+      </div>
+
+
+      {/* Biểu đồ chart */}
       <div className="m-card" style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#555' }}>
-          📈 Doanh thu 7 ngày gần nhất
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#555' }}>📈 Doanh thu</div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {[7, 14, 30].map(d => (
+              <button key={d} onClick={() => setChartDays(d)} style={{
+                padding: '3px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                fontSize: 11, fontWeight: 700,
+                background: chartDays === d ? 'linear-gradient(135deg,#667eea,#764ba2)' : '#f5f5f5',
+                color: chartDays === d ? '#fff' : '#888'
+              }}>{d} ngày</button>
+            ))}
+          </div>
         </div>
         {loading && !data ? <Skeleton active paragraph={{ rows: 4 }} /> :
           chartData.length === 0 ? <Empty description="Chưa có dữ liệu" style={{ padding: '20px 0' }} /> : (
@@ -173,7 +208,7 @@ export default function Dashboard() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
-                <XAxis dataKey="ngay" tick={{ fontSize: 11 }} />
+                <XAxis dataKey="ngay" tick={{ fontSize: 10 }} interval={chartDays === 30 ? 4 : chartDays === 14 ? 1 : 0} />
                 <YAxis tickFormatter={fmtK} tick={{ fontSize: 10 }} width={38} />
                 <Tooltip content={<CustomTooltip />} />
                 <Area type="monotone" dataKey="doanh_thu" name="Doanh thu" stroke="#667eea" fill="url(#dashGrad1)" strokeWidth={2} />

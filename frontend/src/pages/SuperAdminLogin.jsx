@@ -14,8 +14,7 @@ export default function SuperAdminLogin() {
     setLoading(true)
     try {
       const res = await superLogin(password)
-      localStorage.setItem('token', res.data.access_token)
-      localStorage.setItem('role', res.data.user_role)
+      localStorage.setItem('super_token', res.data.access_token)
       message.success('Đăng nhập hệ thống thành công')
       navigate('/super-admin/dashboard')
     } catch (err) {

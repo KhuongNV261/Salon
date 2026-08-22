@@ -47,6 +47,8 @@ class Tenant(Base):
     status = Column(String(20), default="active")
     trial_ends_at = Column(DateTime(timezone=True))
     settings = Column(JSONB, default={})
+    features = Column(JSONB, default={})  # dict: {"dashboard": true, "booking": true, ...}
+    max_staff = Column(Integer, default=10)  # giới hạn số nhân viên
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     # Shop settings
     open_time = Column(String(5), default="08:00")
@@ -95,6 +97,8 @@ class Product(Base):
     is_service = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
     sort_order = Column(SmallInteger, default=0)
+    commission_main_pct = Column(Numeric(5, 2), default=0)   # % HH thợ chính
+    commission_assist_pct = Column(Numeric(5, 2), default=0) # % HH thợ phụ
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class Customer(Base):
@@ -146,7 +150,15 @@ class OrderItem(Base):
     discount_amount = Column(Numeric(12, 0), default=0)
     total = Column(Numeric(12, 0), default=0)
     cost = Column(Numeric(12, 0), default=0)
-    staff_name = Column(String(100))
+    staff_name = Column(String(100))           # thợ chính (giữ backward compat)
+    main_staff_id = Column(PGUUID(as_uuid=True))       # thợ chính
+    main_staff_name = Column(String(100))
+    assist_staff_id = Column(PGUUID(as_uuid=True))     # thợ phụ (nullable)
+    assist_staff_name = Column(String(100))
+    commission_main_pct = Column(Numeric(5, 2), default=0)
+    commission_assist_pct = Column(Numeric(5, 2), default=0)
+    commission_main_amount = Column(Numeric(12, 0), default=0)
+    commission_assist_amount = Column(Numeric(12, 0), default=0)
 
 class Appointment(Base):
     __tablename__ = "appointments"
@@ -184,7 +196,126 @@ class InventoryTransaction(Base):
     created_by_name = Column(String(100))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-# ===== HELPER =====
+# ===== CÁC MODEL MỚI =====
+
+class ServicePackage(Base):
+    """Gói dịch vụ chủ tiệm tạo (VD: Gói gội đầu 10 buổi 500k)"""
+    __tablename__ = "service_packages"
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    name = Column(String(200), nullable=False)           # "Gói gội đầu 10 buổi"
+    description = Column(Text)
+    service_product_id = Column(PGUUID(as_uuid=True))   # FK products (nullable)
+    service_product_name = Column(String(200))           # snapshot tên dịch vụ
+    total_sessions = Column(Integer, default=10)         # Tổng số buổi
+    price = Column(Numeric(12, 0), default=0)            # Giá bán gói
+    valid_days = Column(Integer, default=90)             # Hiệu lực N ngày kể từ ngày mua
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class CustomerPackage(Base):
+    """Gói đã bán cho khách – theo dõi số buổi còn lại"""
+    __tablename__ = "customer_packages"
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    customer_id = Column(PGUUID(as_uuid=True), ForeignKey("customers.id"), nullable=False)
+    customer_name = Column(String(100))
+    package_id = Column(PGUUID(as_uuid=True), ForeignKey("service_packages.id"))
+    package_name = Column(String(200))                   # snapshot tên gói lúc bán
+    total_sessions = Column(Integer, default=10)
+    used_sessions = Column(Integer, default=0)
+    # remaining = total - used (tính khi query)
+    price_paid = Column(Numeric(12, 0), default=0)
+    order_id = Column(PGUUID(as_uuid=True))              # đơn bán gói (FK orders)
+    bought_at = Column(DateTime(timezone=True), server_default=func.now())
+    expired_at = Column(DateTime(timezone=True))         # bought_at + valid_days
+    status = Column(String(20), default="active")        # active / expired / exhausted
+    note = Column(Text)
+
+class PackageUsageLog(Base):
+    """Log mỗi lần dùng 1 buổi của gói"""
+    __tablename__ = "package_usage_logs"
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(PGUUID(as_uuid=True), nullable=False)
+    customer_package_id = Column(PGUUID(as_uuid=True), ForeignKey("customer_packages.id"), nullable=False)
+    customer_id = Column(PGUUID(as_uuid=True))
+    used_by_name = Column(String(100))                   # tên thợ ghi nhận
+    order_id = Column(PGUUID(as_uuid=True))              # đơn liên quan (nếu có)
+    note = Column(Text)
+    used_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class CashSession(Base):
+    """Phiên ca làm việc – Mở ca / Chốt ca"""
+    __tablename__ = "cash_sessions"
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    opened_by = Column(PGUUID(as_uuid=True))
+    opened_by_name = Column(String(100))
+    opened_at = Column(DateTime(timezone=True), server_default=func.now())
+    opening_cash = Column(Numeric(12, 0), default=0)    # Tiền đầu ca
+    closed_by = Column(PGUUID(as_uuid=True))
+    closed_by_name = Column(String(100))
+    closed_at = Column(DateTime(timezone=True))
+    closing_cash_actual = Column(Numeric(12, 0))         # Tiền thực đếm được
+    closing_cash_expected = Column(Numeric(12, 0))       # Tính theo CT: đầu ca + thu - chi
+    cash_difference = Column(Numeric(12, 0))             # Lệch = actual - expected
+    total_revenue_cash = Column(Numeric(12, 0), default=0)
+    total_revenue_transfer = Column(Numeric(12, 0), default=0)
+    total_expense = Column(Numeric(12, 0), default=0)
+    status = Column(String(20), default="open")          # open / closed
+    note = Column(Text)
+
+class DebtTransaction(Base):
+    """Lịch sử từng lần ghi nợ / trả nợ của khách"""
+    __tablename__ = "debt_transactions"
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    customer_id = Column(PGUUID(as_uuid=True), ForeignKey("customers.id"), nullable=False)
+    customer_name = Column(String(100))
+    order_id = Column(PGUUID(as_uuid=True))              # đơn phát sinh nợ (nullable)
+    order_no = Column(String(20))
+    type = Column(String(20), nullable=False)            # incurred (phát sinh) / paid (trả)
+    amount = Column(Numeric(12, 0), nullable=False)      # Số tiền
+    balance_after = Column(Numeric(12, 0), default=0)   # Dư nợ sau giao dịch
+    payment_method = Column(String(20), default="cash") # cash / transfer
+    note = Column(Text)
+    created_by_name = Column(String(100))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class HairRecord(Base):
+    """Lịch sử hóa chất / công thức tóc của từng khách"""
+    __tablename__ = "hair_records"
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    customer_id = Column(PGUUID(as_uuid=True), ForeignKey("customers.id"), nullable=False)
+    appointment_id = Column(PGUUID(as_uuid=True))        # FK appointments (nullable)
+    order_id = Column(PGUUID(as_uuid=True))              # FK orders (nullable)
+    service_name = Column(String(200))                   # "Nhuộm Nâu Lạnh"
+    formula = Column(Text)                               # Công thức thuốc
+    hair_condition = Column(Text)                        # Tình trạng tóc
+    result_note = Column(Text)                           # Kết quả / ghi chú thêm
+    done_by_name = Column(String(100))                   # Thợ làm
+    done_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class CommissionRecord(Base):
+    """Bảng hoa hồng chi tiết – 1 dòng = 1 thợ / 1 item trên đơn"""
+    __tablename__ = "commission_records"
+    id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    order_id = Column(PGUUID(as_uuid=True), nullable=False)
+    order_no = Column(String(20))
+    order_item_id = Column(PGUUID(as_uuid=True))
+    staff_id = Column(PGUUID(as_uuid=True))
+    staff_name = Column(String(100))
+    role = Column(String(20), default="main")            # main / assist
+    product_name = Column(String(200))
+    item_total = Column(Numeric(12, 0), default=0)       # Tổng tiền item
+    commission_pct = Column(Numeric(5, 2), default=0)   # % hoa hồng
+    commission_amount = Column(Numeric(12, 0), default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 def get_db():
     return Session()
 
@@ -295,6 +426,7 @@ def super_get_tenants():
         res = []
         for t in tenants:
             owner = db.query(User).filter(User.tenant_id == t.id, User.role == "owner").first()
+            staff_count = db.query(User).filter(User.tenant_id == t.id, User.role != "owner").count()
             res.append({
                 "id": str(t.id),
                 "name": t.name,
@@ -303,7 +435,10 @@ def super_get_tenants():
                 "status": t.status,
                 "trial_ends_at": t.trial_ends_at.isoformat() if t.trial_ends_at else None,
                 "owner_name": owner.name if owner else "",
-                "owner_phone": owner.phone if owner else ""
+                "owner_phone": owner.phone if owner else "",
+                "features": t.features or {},
+                "max_staff": t.max_staff if t.max_staff is not None else 10,
+                "staff_count": staff_count,
             })
         return ok(res)
     finally:
@@ -364,14 +499,22 @@ def super_update_tenant(tenant_id):
             
         if "name" in d: t.name = d["name"]
         if "status" in d: t.status = d["status"] # active or locked
+        if "trial_ends_at" in d:
+            if d["trial_ends_at"]:
+                ends = d["trial_ends_at"]
+                if isinstance(ends, str):
+                    t.trial_ends_at = datetime.fromisoformat(ends.replace("Z", "+00:00")).replace(tzinfo=None)
+            else:
+                t.trial_ends_at = None
+        if "features" in d: t.features = d["features"]
+        if "max_staff" in d: t.max_staff = int(d["max_staff"])
         
         owner = db.query(User).filter(User.tenant_id == tenant_id, User.role == "owner").first()
         if owner:
             if "owner_name" in d: owner.name = d["owner_name"]
             if "owner_phone" in d: owner.phone = d["owner_phone"]
             if d.get("owner_password"):
-                from app.services.auth import get_password_hash
-                owner.password_hash = get_password_hash(d["owner_password"])
+                owner.password_hash = generate_password_hash(d["owner_password"])
         
         db.commit()
         return ok({"message": "Cập nhật thành công"})
@@ -431,12 +574,17 @@ def public_get_shop(slug):
     try:
         t = db.query(Tenant).filter(Tenant.slug == slug, Tenant.status == 'active').first()
         if not t: return err("Không tìm thấy tiệm", 404)
+        settings = t.settings or {}
         return ok({
             "tenant_id": str(t.id),
             "name": t.name,
             "slug": t.slug,
             "address": t.address or "",
             "phone": t.phone or "",
+            "logo_url": t.logo_url or "",
+            "theme": settings.get("theme", "classic"),
+            "features": t.features or {},
+            "max_staff": t.max_staff if t.max_staff is not None else 10,
         })
     finally:
         db.close()
@@ -450,6 +598,7 @@ def get_settings():
     try:
         t = db.query(Tenant).filter(Tenant.id == tenant_id).first()
         if not t: return err("Tenant not found", 404)
+        settings = t.settings or {}
         return ok({
             "name": t.name,
             "address": t.address or "",
@@ -458,6 +607,12 @@ def get_settings():
             "open_time": t.open_time or "08:00",
             "close_time": t.close_time or "20:00",
             "slot_interval": t.slot_interval or 30,
+            "theme": settings.get("theme", "classic"),
+            # Thông tin ngân hàng cho QR VietQR
+            "bank_name": settings.get("bank_name", ""),
+            "bank_account_number": settings.get("bank_account_number", ""),
+            "bank_account_name": settings.get("bank_account_name", ""),
+            "bank_transfer_note": settings.get("bank_transfer_note", ""),
         })
     finally:
         db.close()
@@ -476,6 +631,14 @@ def update_settings():
         for field in ["name", "address", "phone", "open_time", "close_time", "slot_interval", "slug"]:
             if field in d:
                 setattr(t, field, d[field])
+        # Lưu các settings vào JSONB
+        settings_fields = ["theme", "bank_name", "bank_account_number", "bank_account_name", "bank_transfer_note"]
+        if any(f in d for f in settings_fields):
+            current_settings = dict(t.settings or {})
+            for sf in settings_fields:
+                if sf in d:
+                    current_settings[sf] = d[sf]
+            t.settings = current_settings
         db.commit()
         return ok({"message": "Cập nhật thành công"})
     finally:
@@ -646,21 +809,77 @@ def create_order():
         db.flush()
 
         for item in items:
+            product_id = item.get("product_id")
+            main_staff_id = item.get("main_staff_id")
+            main_staff_name = item.get("main_staff_name")
+            assist_staff_id = item.get("assist_staff_id")
+            assist_staff_name = item.get("assist_staff_name")
+            item_total = item["qty"] * item["price"] - item.get("discount_amount", 0)
+
+            # Lấy % hoa hồng từ product (nếu không override)
+            comm_main_pct = float(item.get("commission_main_pct", 0))
+            comm_assist_pct = float(item.get("commission_assist_pct", 0))
+            if product_id and (comm_main_pct == 0 and comm_assist_pct == 0):
+                prod = db.query(Product).filter(Product.id == product_id).first()
+                if prod:
+                    comm_main_pct = float(prod.commission_main_pct or 0)
+                    comm_assist_pct = float(prod.commission_assist_pct or 0)
+                    if prod.track_stock:
+                        prod.stock_qty = float(prod.stock_qty) - float(item["qty"])
+
+            comm_main_amount = round(item_total * comm_main_pct / 100)
+            comm_assist_amount = round(item_total * comm_assist_pct / 100)
+
             oi = OrderItem(
                 order_id=order.id, tenant_id=tenant_id,
-                product_id=item.get("product_id"),
+                product_id=product_id,
                 product_name=item["product_name"],
                 unit=item.get("unit", "cai"),
                 qty=item["qty"], price=item["price"],
                 discount_amount=item.get("discount_amount", 0),
-                total=item["qty"] * item["price"] - item.get("discount_amount", 0),
+                total=item_total,
                 cost=item.get("cost", 0),
-                staff_name=item.get("staff_name", staff_name)
+                staff_name=main_staff_name or item.get("staff_name", staff_name),
+                main_staff_id=main_staff_id,
+                main_staff_name=main_staff_name,
+                assist_staff_id=assist_staff_id,
+                assist_staff_name=assist_staff_name,
+                commission_main_pct=comm_main_pct,
+                commission_assist_pct=comm_assist_pct,
+                commission_main_amount=comm_main_amount,
+                commission_assist_amount=comm_assist_amount,
             )
             db.add(oi)
-            # Cập nhật tồn kho
-            if item.get("product_id"):
-                p = db.query(Product).filter(Product.id == item["product_id"]).first()
+            db.flush()
+
+            # Tạo CommissionRecord
+            if main_staff_id and comm_main_amount > 0:
+                db.add(CommissionRecord(
+                    tenant_id=tenant_id,
+                    order_id=order.id, order_no=order.order_no,
+                    order_item_id=oi.id,
+                    staff_id=main_staff_id, staff_name=main_staff_name or "",
+                    role="main",
+                    product_name=item["product_name"],
+                    item_total=item_total,
+                    commission_pct=comm_main_pct,
+                    commission_amount=comm_main_amount,
+                ))
+            if assist_staff_id and comm_assist_amount > 0:
+                db.add(CommissionRecord(
+                    tenant_id=tenant_id,
+                    order_id=order.id, order_no=order.order_no,
+                    order_item_id=oi.id,
+                    staff_id=assist_staff_id, staff_name=assist_staff_name or "",
+                    role="assist",
+                    product_name=item["product_name"],
+                    item_total=item_total,
+                    commission_pct=comm_assist_pct,
+                    commission_amount=comm_assist_amount,
+                ))
+            # Cập nhật tồn kho nếu chưa xử lý ở trên
+            if product_id and comm_main_pct == 0 and comm_assist_pct == 0:
+                p = db.query(Product).filter(Product.id == product_id).first()
                 if p and p.track_stock:
                     p.stock_qty = float(p.stock_qty) - float(item["qty"])
 
@@ -669,6 +888,26 @@ def create_order():
             c = db.query(Customer).filter(Customer.id == d["customer_id"]).first()
             if c:
                 c.debt = float(c.debt) + debt
+                c.total_spent = float(c.total_spent) + paid
+                c.visit_count += 1
+                c.last_visit_at = datetime.now()
+                # Tạo DebtTransaction
+                db.add(DebtTransaction(
+                    tenant_id=tenant_id,
+                    customer_id=c.id,
+                    customer_name=c.name,
+                    order_id=order.id,
+                    order_no=order.order_no,
+                    type="incurred",
+                    amount=debt,
+                    balance_after=float(c.debt),
+                    payment_method=pay_method,
+                    created_by_name=staff_name,
+                ))
+        elif d.get("customer_id") and paid > 0 and debt == 0:
+            # Cập nhật total_spent/visit_count khi không nợ
+            c = db.query(Customer).filter(Customer.id == d["customer_id"]).first()
+            if c:
                 c.total_spent = float(c.total_spent) + paid
                 c.visit_count += 1
                 c.last_visit_at = datetime.now()
@@ -879,6 +1118,12 @@ def create_staff():
     d = request.json
     db = get_db()
     try:
+        # Kiểm tra giới hạn nhân viên
+        tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+        max_staff = tenant.max_staff if tenant and tenant.max_staff is not None else 10
+        current_count = db.query(User).filter(User.tenant_id == tenant_id, User.role != "owner").count()
+        if current_count >= max_staff:
+            return err(f"Đã đạt giới hạn {max_staff} nhân viên theo gói hiện tại. Liên hệ admin để nâng cấp gói.", 400)
         existing = db.query(User).filter(User.tenant_id == tenant_id, User.phone == d["phone"]).first()
         if existing: return err("Số điện thoại đã tồn tại", 400)
         u = User(
@@ -969,15 +1214,14 @@ def staff_commission(user_id):
         db.close()
 
 
-# ===== THÔNG BÁO UPCOMING APPOINTMENTS =====
+# ===== THÔNG BÁO LỊCH HẸN SẮP TỚI (IN-APP ONLY) =====
 
 @app.get("/api/notifications/upcoming")
 @jwt_required()
 def get_upcoming_notifications():
     """
-    Trả về lịch hẹn sắp đến trong vòng X phút tới,
-    CHỈ của các nhân viên đã bật notify_upcoming = True.
-    Frontend dùng để polling và hiện chuông thông báo.
+    Trả về lịch hẹn sắp đến trong vòng X phút tới của toàn tiệm.
+    Frontend dùng để polling và hiện chuông thông báo in-app.
     """
     import datetime as dt_module
     _, tenant_id, _ = current_user_info()
@@ -987,20 +1231,6 @@ def get_upcoming_notifications():
         now = datetime.now()
         window_end = now + dt_module.timedelta(minutes=minutes)
 
-        # Lấy danh sách nhân viên bật thông báo
-        notified_staff = db.query(User).filter(
-            User.tenant_id == tenant_id,
-            User.notify_upcoming == True,
-            User.is_active == True
-        ).all()
-
-        if not notified_staff:
-            return ok([])
-
-        notified_ids = {str(u.id) for u in notified_staff}
-        notified_map = {str(u.id): u for u in notified_staff}
-
-        # Lấy lịch hẹn sắp tới trong window
         apts = db.query(Appointment).filter(
             Appointment.tenant_id == tenant_id,
             Appointment.appointment_time >= now,
@@ -1010,17 +1240,13 @@ def get_upcoming_notifications():
 
         results = []
         for apt in apts:
-            # Chỉ lấy lịch của thợ đã bật thông báo
-            if str(apt.stylist_id) not in notified_ids:
-                continue
-            stylist = notified_map.get(str(apt.stylist_id))
             minutes_left = int((apt.appointment_time - now).total_seconds() / 60)
             results.append({
                 "id": str(apt.id),
                 "customer_name": apt.customer_name or "Khách",
                 "customer_phone": apt.customer_phone or "",
                 "stylist_id": str(apt.stylist_id) if apt.stylist_id else "",
-                "stylist_name": apt.stylist_name or (stylist.name if stylist else ""),
+                "stylist_name": apt.stylist_name or "",
                 "service_name": apt.service_name or "",
                 "appointment_time": apt.appointment_time.isoformat(),
                 "appointment_time_fmt": apt.appointment_time.strftime("%H:%M"),
@@ -1710,8 +1936,10 @@ def dashboard_summary():
             Customer.debt > 0
         ).count()
 
-        # === 7 days chart ===
-        seven_days_ago = today - dt_module.timedelta(days=6)
+        # === Chart (7/14/30 days, configurable) ===
+        chart_days = int(request.args.get("days", 7))
+        if chart_days not in (7, 14, 30): chart_days = 7
+        chart_start = today - dt_module.timedelta(days=chart_days - 1)
         chart_rows = db.execute(text("""
             SELECT DATE(created_at) as ngay,
                    COUNT(*) as so_hd,
@@ -1721,7 +1949,7 @@ def dashboard_summary():
             WHERE tenant_id = :tid AND is_deleted = false AND status != 'cancelled'
               AND DATE(created_at) >= :df AND DATE(created_at) <= :dt
             GROUP BY DATE(created_at) ORDER BY ngay
-        """), {"tid": tenant_id, "df": str(seven_days_ago), "dt": str(today)}).fetchall()
+        """), {"tid": tenant_id, "df": str(chart_start), "dt": str(today)}).fetchall()
 
         # === This month ===
         month_start = today.replace(day=1)
@@ -1962,453 +2190,599 @@ def get_order_items(order_id):
 
 
 
-# ===== SMS / ZALO NHẮC LỊCH HẸN =====
 
-def send_sms_speedsms(phone, message_text, api_key):
-    """Gửi SMS qua SpeedSMS API (trả phí ~500đ/SMS)"""
-    import urllib.request, json as jsonlib
-    url = "https://api.speedsms.vn/index.php/sms/send"
-    data = jsonlib.dumps({
-        "to": [phone], "content": message_text,
-        "sms_type": 4, "sender": ""
-    }).encode("utf-8")
-    headers = {
-        "Authorization": "Basic " + __import__("base64").b64encode(f"{api_key}:x".encode()).decode(),
-        "Content-Type": "application/json"
-    }
-    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = jsonlib.loads(resp.read().decode())
-            return result.get("status") == "success"
-    except Exception as e:
-        print(f"SpeedSMS Error: {e}")
-        return False
+# ============================================================
+# ===== GÓI DỊCH VỤ / THẺ LIỆU TRÌNH =====
+# ============================================================
 
-
-def send_sms_esms(phone, message_text, api_key, secret_key):
-    """Gửi SMS qua ESMS API (trả phí)"""
-    import urllib.request, urllib.parse, json as jsonlib
-    url = "http://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_get?"
-    params = urllib.parse.urlencode({
-        "ApiKey": api_key, "Content": message_text, "Phone": phone,
-        "SecretKey": secret_key, "IsUnicode": 0, "Brandname": "", "SmsType": 2,
-    })
-    try:
-        with urllib.request.urlopen(url + params, timeout=10) as resp:
-            result = jsonlib.loads(resp.read().decode())
-            return result.get("CodeResult") == "100"
-    except Exception as e:
-        print(f"ESMS Error: {e}")
-        return False
-
-
-# ==========================================
-# MIỄN PHÍ: ZALO OA
-# ==========================================
-def send_zalo_oa(user_id, message_text, access_token):
-    """Gửi tin nhắn qua Zalo OA API (Đồng bộ - miễn phí)
-    
-    CÁCH DÙNG:
-    1. Vào business.zalo.me → tạo Official Account (miễn phí)
-    2. Vào Quản lý ứng dụng → tạo ứng dụng → lấy Access Token
-    3. Khách hàng phải FOLLOW OA của bạn trước
-    4. Lấy user_id Zalo của khách qua webhook hoặc khi họ nhắn tin vào OA
-    
-    user_id: Zalo user_id của khách (không phải số điện thoại!)
-    """
-    import urllib.request, json as jsonlib
-    url = "https://openapi.zalo.me/v3.0/oa/message/cs"
-    payload = {
-        "recipient": {"user_id": user_id},
-        "message": {"text": message_text}
-    }
-    data = jsonlib.dumps(payload).encode("utf-8")
-    headers = {
-        "access_token": access_token,
-        "Content-Type": "application/json"
-    }
-    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = jsonlib.loads(resp.read().decode())
-            return result.get("error") == 0
-    except Exception as e:
-        print(f"Zalo OA Error: {e}")
-        return False
-
-
-# ==========================================
-# MIỄN PHÍ: TELEGRAM BOT
-# ==========================================
-def send_telegram(chat_id, message_text, bot_token):
-    """Gửi tin qua Telegram Bot (miễn phí 100%, không giới hạn)
-    
-    CÁCH DÙNG:
-    1. Nhắn @BotFather trên Telegram → /newbot → lấy Bot Token
-    2. Khách hàng cần nhắn /start cho bot 1 lần
-    3. Lấy chat_id của khách từ webhook hoặc API getUpdates
-    
-    chat_id: Telegram chat_id của khách (số nguyên, ví dụ: 123456789)
-    """
-    import urllib.request, urllib.parse, json as jsonlib
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    params = urllib.parse.urlencode({
-        "chat_id": chat_id,
-        "text": message_text,
-        "parse_mode": "HTML"
-    })
-    try:
-        with urllib.request.urlopen(f"{url}?{params}", timeout=10) as resp:
-            result = jsonlib.loads(resp.read().decode())
-            return result.get("ok") == True
-    except Exception as e:
-        print(f"Telegram Error: {e}")
-        return False
-
-
-def get_telegram_updates(bot_token):
-    """Lấy danh sách chat_id từ khách đã nhắn bot (dùng để lưu chat_id)"""
-    import urllib.request, json as jsonlib
-    url = f"https://api.telegram.org/bot{bot_token}/getUpdates"
-    try:
-        with urllib.request.urlopen(url, timeout=10) as resp:
-            return jsonlib.loads(resp.read().decode())
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-
-# ==========================================
-# MIỄN PHÍ: GMAIL / EMAIL
-# ==========================================
-def send_email_gmail(to_email, subject, body, gmail_user, gmail_app_password):
-    """Gửi email qua Gmail SMTP (miễn phí)
-    
-    CÁCH DÙNG:
-    1. Bật 2-Step Verification trên tài khoản Gmail
-    2. Vào myaccount.google.com → Security → App Passwords
-    3. Tạo App Password cho 'Mail' → copy 16 ký tự
-    4. Diền gmail_user = 'tenban@gmail.com', gmail_app_password = '16 ký tự đó'
-    """
-    import smtplib
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
-    try:
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = subject
-        msg['From'] = gmail_user
-        msg['To'] = to_email
-        # Plain text
-        msg.attach(MIMEText(body, 'plain', 'utf-8'))
-        # HTML version (đẹp hơn)
-        html_body = f"""
-        <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px">
-          <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:16px;border-radius:12px;text-align:center;margin-bottom:16px">
-            <h2 style="color:#fff;margin:0">📅 Nhắc lịch hẹn</h2>
-          </div>
-          <p style="font-size:15px;color:#333;line-height:1.6">{body.replace(chr(10), '<br/>')}</p>
-          <hr style="border:1px solid #f0f0f0;margin:16px 0">
-          <p style="font-size:12px;color:#999">Tin nhắn tự động từ hệ thống LocalPOS</p>
-        </div>
-        """
-        msg.attach(MIMEText(html_body, 'html', 'utf-8'))
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(gmail_user, gmail_app_password)
-            server.sendmail(gmail_user, to_email, msg.as_string())
-        return True
-    except Exception as e:
-        print(f"Gmail Error: {e}")
-        return False
-
-
-def do_send_reminder(apt_id, tenant_id, phone, message_text, customer_email=None):
-    """Thực thi gửi thông báo và update reminder_sent"""
-    db = get_db()
-    try:
-        tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-        sms_cfg = (tenant.settings or {}).get("sms", {})
-        provider = sms_cfg.get("provider", "demo")
-        api_key  = sms_cfg.get("api_key", "")
-        secret_key = sms_cfg.get("secret_key", "")
-
-        success = False
-
-        # ── SMS trả phí ──────────────────────────────
-        if provider == "speedsms" and api_key:
-            success = send_sms_speedsms(phone, message_text, api_key)
-
-        elif provider == "esms" and api_key and secret_key:
-            success = send_sms_esms(phone, message_text, api_key, secret_key)
-
-        # ── MIỄN PHÍ: Zalo OA ──────────────────────
-        elif provider == "zalo_oa" and api_key:
-            # api_key = Zalo OA Access Token
-            # secret_key = Zalo user_id của khách (lưu khi họ nhắn OA)
-            zalo_user_id = sms_cfg.get("zalo_user_id_field", "")
-            # Thực tế: zalo_user_id lấy từ DB của khách hàng
-            # ᴔm đây số điện thoại là phone, cần map sang Zalo user_id
-            if secret_key:  # dùng secret_key để lưu zalo_user_id trong trường hợp đơn giản
-                success = send_zalo_oa(secret_key, message_text, api_key)
-            else:
-                print(f"[Zalo OA] Thiếu Zalo user_id cho khách {phone}")
-                success = False
-
-        # ── MIỄN PHÍ: Telegram Bot ──────────────────
-        elif provider == "telegram" and api_key:
-            # api_key = Bot Token
-            # secret_key = chat_id của khách
-            if secret_key:
-                success = send_telegram(secret_key, message_text, api_key)
-            else:
-                print(f"[Telegram] Thiếu chat_id cho khách {phone}")
-                success = False
-
-        # ── MIỄN PHÍ: Gmail SMTP ─────────────────────
-        elif provider == "gmail" and api_key:
-            # api_key = gmail address (ten@gmail.com)
-            # secret_key = App Password (16 ký tự)
-            to_email = customer_email or sms_cfg.get("test_email", "")
-            subject = sms_cfg.get("email_subject", "Nhắc lịch hẹn")
-            if to_email and secret_key:
-                success = send_email_gmail(to_email, subject, message_text, api_key, secret_key)
-            else:
-                print(f"[Gmail] Thiếu email khách hoặc App Password")
-                success = False
-
-        # ── Demo mode ─────────────────────────────────
-        else:
-            print(f"[DEMO] Provider={provider} | To={phone} | Msg={message_text}")
-            success = True  # demo luôn success
-
-        if success:
-            apt = db.query(Appointment).filter(Appointment.id == apt_id).first()
-            if apt:
-                apt.reminder_sent = True
-                db.commit()
-        return success
-    except Exception as e:
-        print(f"Reminder error: {e}")
-        return False
-    finally:
-        db.close()
-
-
-def check_and_send_reminders():
-    """Job chạy mỗi 15 phút: tìm lịch hẹn sắp đến và gửi nhắc"""
-    import datetime as dt_module
-    db = get_db()
-    try:
-        now = datetime.now()
-        # Tìm lịch hẹn trong 60-90 phút tới, chưa gửi nhắc, có SĐT
-        window_start = now + dt_module.timedelta(minutes=55)
-        window_end = now + dt_module.timedelta(minutes=95)
-
-        apts = db.query(Appointment, Tenant).join(
-            Tenant, Appointment.tenant_id == Tenant.id
-        ).filter(
-            Appointment.appointment_time >= window_start,
-            Appointment.appointment_time <= window_end,
-            Appointment.reminder_sent == False,
-            Appointment.status.notin_(["cancelled", "done"]),
-            Appointment.customer_phone.isnot(None),
-            Appointment.customer_phone != ""
-        ).all()
-
-        for apt, tenant in apts:
-            sms_settings = (tenant.settings or {}).get("sms", {})
-            if not sms_settings.get("enabled", False):
-                continue
-            template = sms_settings.get("template",
-                "Xin chào {name}! {shop} nhắc bạn có lịch hẹn lúc {time} hôm nay. Xin vui lòng đến đúng giờ. Cảm ơn!")
-            msg = template.replace("{name}", apt.customer_name or "Quý khách")
-            msg = msg.replace("{shop}", tenant.name or "Tiệm")
-            msg = msg.replace("{time}", apt.appointment_time.strftime("%H:%M"))
-            msg = msg.replace("{service}", apt.service_name or "")
-            msg = msg.replace("{stylist}", apt.stylist_name or "")
-
-            print(f"[Reminder] Sending to {apt.customer_phone} for apt {apt.id}")
-            do_send_reminder(str(apt.id), str(apt.tenant_id), apt.customer_phone, msg)
-
-    except Exception as e:
-        print(f"Reminder job error: {e}")
-    finally:
-        db.close()
-
-
-# Khởi tạo APScheduler (nếu có)
-try:
-    from apscheduler.schedulers.background import BackgroundScheduler
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(check_and_send_reminders, 'interval', minutes=15, id='sms_reminder')
-    scheduler.start()
-    print("[Scheduler] SMS reminder job started (every 15 minutes)")
-except ImportError:
-    print("[Scheduler] APScheduler not installed – SMS auto-reminder disabled. Run: pip install apscheduler")
-    scheduler = None
-
-
-# ─── API: Gửi nhắc thủ công ──────────────────────────
-@app.post("/api/appointments/<apt_id>/send-reminder")
+@app.get("/api/packages")
 @jwt_required()
-def send_manual_reminder(apt_id):
-    """Gửi SMS nhắc lịch thủ công cho 1 lịch hẹn cụ thể"""
+def get_packages():
+    """Danh sách gói dịch vụ"""
     _, tenant_id, _ = current_user_info()
     db = get_db()
     try:
-        apt = db.query(Appointment).filter(Appointment.id == apt_id, Appointment.tenant_id == tenant_id).first()
-        if not apt: return err("Không tìm thấy lịch hẹn", 404)
-        if not apt.customer_phone: return err("Lịch hẹn này không có số điện thoại", 400)
-
-        tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-        sms_settings = (tenant.settings or {}).get("sms", {})
-        template = sms_settings.get("template",
-            "Xin chào {name}! {shop} nhắc bạn có lịch hẹn lúc {time} hôm nay. Xin vui lòng đến đúng giờ. Cảm ơn!")
-        msg = template.replace("{name}", apt.customer_name or "Quý khách")
-        msg = msg.replace("{shop}", tenant.name or "Tiệm")
-        msg = msg.replace("{time}", apt.appointment_time.strftime("%H:%M"))
-        msg = msg.replace("{service}", apt.service_name or "")
-        msg = msg.replace("{stylist}", apt.stylist_name or "")
-
-        success = do_send_reminder(apt_id, tenant_id, apt.customer_phone, msg)
-        if success:
-            return ok({"message": f"Đã gửi SMS tới {apt.customer_phone}"})
-        else:
-            return err("Gửi SMS thất bại. Kiểm tra API key trong Cài đặt.", 500)
+        pkgs = db.query(ServicePackage).filter(
+            ServicePackage.tenant_id == tenant_id
+        ).order_by(ServicePackage.created_at.desc()).all()
+        return ok([{
+            "id": str(p.id), "name": p.name, "description": p.description or "",
+            "service_product_id": str(p.service_product_id) if p.service_product_id else "",
+            "service_product_name": p.service_product_name or "",
+            "total_sessions": p.total_sessions, "price": float(p.price or 0),
+            "valid_days": p.valid_days, "is_active": p.is_active,
+        } for p in pkgs])
     finally:
         db.close()
 
 
-# ─── API: Lấy & cập nhật cài đặt SMS ─────────────────
-@app.get("/api/settings/sms")
+@app.post("/api/packages")
 @jwt_required()
-def get_sms_settings():
+def create_package():
     _, tenant_id, role = current_user_info()
     if role not in ("owner", "manager"): return err("Không có quyền", 403)
+    d = request.json or {}
+    if not d.get("name"): return err("Tên gói không được trống", 400)
     db = get_db()
     try:
-        t = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-        sms = (t.settings or {}).get("sms", {})
-        return ok({
-            "enabled":       sms.get("enabled", False),
-            "provider":      sms.get("provider", "demo"),
-            "api_key":       sms.get("api_key", ""),
-            "secret_key":    sms.get("secret_key", ""),
-            "test_email":    sms.get("test_email", ""),
-            "email_subject": sms.get("email_subject", "Nhắc lịch hẹn"),
-            "template": sms.get("template",
-                "Xin chào {name}! {shop} nhắc bạn có lịch hẹn lúc {time} hôm nay. Xin vui lòng đến đúng giờ. Cảm ơn!"),
-        })
-    finally:
-        db.close()
-
-
-@app.put("/api/settings/sms")
-@jwt_required()
-def update_sms_settings():
-    _, tenant_id, role = current_user_info()
-    if role not in ("owner", "manager"): return err("Không có quyền", 403)
-    d = request.json
-    db = get_db()
-    try:
-        t = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-        current_settings = dict(t.settings or {})
-        cur = dict(t.settings or {})
-        cur["sms"] = {
-            "enabled":       d.get("enabled", False),
-            "provider":      d.get("provider", "demo"),
-            "api_key":       d.get("api_key", ""),
-            "secret_key":    d.get("secret_key", ""),
-            "test_email":    d.get("test_email", ""),
-            "email_subject": d.get("email_subject", "Nhắc lịch hẹn"),
-            "template":      d.get("template", "Xin chào {name}! {shop} nhắc bạn có lịch hẹn lúc {time} hôm nay."),
-        }
-        t.settings = cur
-        db.commit()
-        return ok({"message": "Đã cập nhật cài đặt thông báo"})
+        p = ServicePackage(
+            tenant_id=tenant_id, name=d["name"].strip(),
+            description=d.get("description", ""),
+            service_product_name=d.get("service_product_name", ""),
+            total_sessions=int(d.get("total_sessions", 10)),
+            price=d.get("price", 0), valid_days=int(d.get("valid_days", 90)),
+        )
+        if d.get("service_product_id"):
+            p.service_product_id = d["service_product_id"]
+        db.add(p); db.commit()
+        return ok({"id": str(p.id), "message": "Đã tạo gói"}, 201)
     except Exception as e:
-        db.rollback()
-        return err(str(e), 500)
+        db.rollback(); return err(str(e), 500)
     finally:
         db.close()
 
 
-@app.post("/api/settings/sms/test")
+@app.put("/api/packages/<pkg_id>")
 @jwt_required()
-def test_notification():
-    """Gửi thông báo test"""
+def update_package(pkg_id):
     _, tenant_id, role = current_user_info()
     if role not in ("owner", "manager"): return err("Không có quyền", 403)
     d = request.json or {}
     db = get_db()
     try:
-        t = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-        sms = (t.settings or {}).get("sms", {})
-        provider   = sms.get("provider", "demo")
-        api_key    = sms.get("api_key", "")
-        secret_key = sms.get("secret_key", "")
-        test_msg = f"[TEST] {t.name} - Đây là tin nhắn kiểm tra. Nếu nhận được, tính năng nhắc lịch đã hoạt động!"
-        success = False
-        detail = "demo mode"
-
-        if provider == "telegram" and api_key:
-            chat_id = d.get("chat_id") or secret_key
-            if not chat_id: return err("Nhập chat_id Telegram vào Secret Key", 400)
-            success = send_telegram(chat_id, test_msg, api_key)
-            detail = f"Telegram chat_id={chat_id}"
-        elif provider == "zalo_oa" and api_key:
-            zalo_uid = d.get("zalo_user_id") or secret_key
-            if not zalo_uid: return err("Nhập Zalo user_id vào Secret Key", 400)
-            success = send_zalo_oa(zalo_uid, test_msg, api_key)
-            detail = f"Zalo user_id={zalo_uid}"
-        elif provider == "gmail" and api_key and secret_key:
-            email = d.get("email") or sms.get("test_email", "")
-            if not email: return err("Nhập email test", 400)
-            success = send_email_gmail(email, "[TEST] Nhắc lịch hẹn", test_msg, api_key, secret_key)
-            detail = f"email={email}"
-        elif provider in ("speedsms", "esms") and api_key:
-            phone = d.get("phone", "")
-            if not phone: return err("Nhập số điện thoại test", 400)
-            success = send_sms_speedsms(phone, test_msg, api_key) if provider == "speedsms" else send_sms_esms(phone, test_msg, api_key, secret_key)
-            detail = f"phone={phone}"
-        else:
-            print(f"[TEST DEMO] {test_msg}")
-            success = True
-
-        if success:
-            return ok({"message": f"Đã gửi test! ({detail})"})
-        else:
-            return err("Gửi thất bại. Kiểm tra lại API key.", 500)
+        p = db.query(ServicePackage).filter(ServicePackage.id == pkg_id, ServicePackage.tenant_id == tenant_id).first()
+        if not p: return err("Không tìm thấy", 404)
+        for k in ("name", "description", "service_product_name", "valid_days", "price", "total_sessions", "is_active"):
+            if k in d: setattr(p, k, d[k])
+        if "service_product_id" in d and d["service_product_id"]:
+            p.service_product_id = d["service_product_id"]
+        db.commit(); return ok({"message": "Đã cập nhật"})
+    except Exception as e:
+        db.rollback(); return err(str(e), 500)
     finally:
         db.close()
 
 
-@app.get("/api/settings/telegram-updates")
+@app.delete("/api/packages/<pkg_id>")
 @jwt_required()
-def telegram_get_updates():
-    """Lấy danh sách users đã nhắn bot"""
+def delete_package(pkg_id):
     _, tenant_id, role = current_user_info()
     if role not in ("owner", "manager"): return err("Không có quyền", 403)
     db = get_db()
     try:
-        t = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-        sms = (t.settings or {}).get("sms", {})
-        if sms.get("provider") != "telegram": return err("Chưa chọn Telegram", 400)
-        bot_token = sms.get("api_key", "")
-        if not bot_token: return err("Chưa nhập Bot Token", 400)
-        result = get_telegram_updates(bot_token)
-        if not result.get("ok"): return err("Lỗi kết nối Telegram", 500)
-        seen, users = set(), []
-        for upd in result.get("result", []):
-            m = upd.get("message") or upd.get("channel_post") or {}
-            chat = m.get("chat", {})
-            cid = chat.get("id")
-            if cid and cid not in seen:
-                seen.add(cid)
-                users.append({"chat_id": cid, "name": (chat.get("first_name","") + " " + chat.get("last_name","")).strip(), "username": chat.get("username","")})
-        return ok(users)
+        p = db.query(ServicePackage).filter(ServicePackage.id == pkg_id, ServicePackage.tenant_id == tenant_id).first()
+        if not p: return err("Không tìm thấy", 404)
+        p.is_active = False; db.commit()
+        return ok({"message": "Đã ẩn gói"})
     finally:
         db.close()
 
 
+@app.get("/api/customers/<customer_id>/packages")
+@jwt_required()
+def get_customer_packages(customer_id):
+    """Danh sách gói của 1 khách (gồm active + lịch sử)"""
+    _, tenant_id, _ = current_user_info()
+    db = get_db()
+    try:
+        cps = db.query(CustomerPackage).filter(
+            CustomerPackage.customer_id == customer_id,
+            CustomerPackage.tenant_id == tenant_id
+        ).order_by(CustomerPackage.bought_at.desc()).all()
+        now = datetime.now()
+        result = []
+        for cp in cps:
+            remaining = cp.total_sessions - cp.used_sessions
+            # Tự động tính status
+            status = cp.status
+            if status == "active":
+                if remaining <= 0: status = "exhausted"
+                elif cp.expired_at and cp.expired_at < now: status = "expired"
+            result.append({
+                "id": str(cp.id), "package_name": cp.package_name or "",
+                "total_sessions": cp.total_sessions, "used_sessions": cp.used_sessions,
+                "remaining_sessions": max(0, remaining), "status": status,
+                "bought_at": cp.bought_at.isoformat() if cp.bought_at else "",
+                "expired_at": cp.expired_at.isoformat() if cp.expired_at else "",
+                "price_paid": float(cp.price_paid or 0), "note": cp.note or "",
+            })
+        return ok(result)
+    finally:
+        db.close()
+
+
+@app.post("/api/packages/sell")
+@jwt_required()
+def sell_package():
+    """Bán 1 gói cho khách"""
+    user_id, tenant_id, _ = current_user_info()
+    d = request.json or {}
+    customer_id = d.get("customer_id")
+    package_id = d.get("package_id")
+    if not customer_id or not package_id: return err("Thiếu customer_id hoặc package_id", 400)
+    db = get_db()
+    try:
+        pkg = db.query(ServicePackage).filter(ServicePackage.id == package_id, ServicePackage.tenant_id == tenant_id).first()
+        if not pkg: return err("Không tìm thấy gói", 404)
+        cust = db.query(Customer).filter(Customer.id == customer_id, Customer.tenant_id == tenant_id).first()
+        if not cust: return err("Không tìm thấy khách", 404)
+        import datetime as dt_mod
+        cp = CustomerPackage(
+            tenant_id=tenant_id, customer_id=customer_id,
+            customer_name=cust.name, package_id=package_id,
+            package_name=pkg.name, total_sessions=pkg.total_sessions,
+            used_sessions=0, price_paid=pkg.price, status="active",
+            bought_at=datetime.now(),
+            expired_at=datetime.now() + dt_mod.timedelta(days=pkg.valid_days),
+        )
+        db.add(cp); db.commit()
+        return ok({"id": str(cp.id), "message": f"Đã bán gói '{pkg.name}' cho {cust.name}"}, 201)
+    except Exception as e:
+        db.rollback(); return err(str(e), 500)
+    finally:
+        db.close()
+
+
+@app.post("/api/customer-packages/<cp_id>/use")
+@jwt_required()
+def use_package_session(cp_id):
+    """Trừ 1 buổi từ gói của khách"""
+    user_id, tenant_id, _ = current_user_info()
+    db = get_db()
+    try:
+        cp = db.query(CustomerPackage).filter(CustomerPackage.id == cp_id, CustomerPackage.tenant_id == tenant_id).first()
+        if not cp: return err("Không tìm thấy gói", 404)
+        if cp.status != "active": return err(f"Gói không còn hiệu lực (status={cp.status})", 400)
+        remaining = cp.total_sessions - cp.used_sessions
+        if remaining <= 0: return err("Gói đã hết buổi", 400)
+        now = datetime.now()
+        if cp.expired_at and cp.expired_at < now: return err("Gói đã hết hạn", 400)
+
+        # Lấy thông tin user hiện tại
+        db2 = get_db()
+        try:
+            u = db2.query(User).filter(User.id == user_id).first()
+            staff_name = u.name if u else ""
+        finally:
+            db2.close()
+
+        cp.used_sessions += 1
+        if cp.used_sessions >= cp.total_sessions: cp.status = "exhausted"
+
+        log = PackageUsageLog(
+            tenant_id=tenant_id, customer_package_id=cp.id,
+            customer_id=cp.customer_id, used_by_name=staff_name,
+            note=request.json.get("note", "") if request.json else "",
+        )
+        db.add(log); db.commit()
+        return ok({
+            "message": "Đã dùng 1 buổi",
+            "used_sessions": cp.used_sessions,
+            "remaining_sessions": cp.total_sessions - cp.used_sessions,
+            "status": cp.status,
+        })
+    except Exception as e:
+        db.rollback(); return err(str(e), 500)
+    finally:
+        db.close()
+
+
+@app.get("/api/customers/<customer_id>/packages/active")
+@jwt_required()
+def get_customer_active_packages(customer_id):
+    """Lấy gói còn buổi của khách (cho POS gợi ý)"""
+    _, tenant_id, _ = current_user_info()
+    db = get_db()
+    try:
+        now = datetime.now()
+        cps = db.query(CustomerPackage).filter(
+            CustomerPackage.customer_id == customer_id,
+            CustomerPackage.tenant_id == tenant_id,
+            CustomerPackage.status == "active",
+        ).all()
+        result = []
+        for cp in cps:
+            remaining = cp.total_sessions - cp.used_sessions
+            if remaining <= 0: continue
+            if cp.expired_at and cp.expired_at < now: continue
+            result.append({
+                "id": str(cp.id), "package_name": cp.package_name or "",
+                "remaining_sessions": remaining,
+                "expired_at": cp.expired_at.isoformat() if cp.expired_at else "",
+            })
+        return ok(result)
+    finally:
+        db.close()
+
+
+# ============================================================
+# ===== CHỐT CA / CASH SESSION =====
+# ============================================================
+
+@app.get("/api/cash-session/current")
+@jwt_required()
+def get_current_session():
+    """Ca đang mở của tenant"""
+    _, tenant_id, _ = current_user_info()
+    db = get_db()
+    try:
+        s = db.query(CashSession).filter(
+            CashSession.tenant_id == tenant_id,
+            CashSession.status == "open"
+        ).order_by(CashSession.opened_at.desc()).first()
+        if not s: return ok(None)
+        return ok({
+            "id": str(s.id), "opened_by_name": s.opened_by_name or "",
+            "opened_at": s.opened_at.isoformat(),
+            "opening_cash": float(s.opening_cash or 0),
+            "status": s.status,
+        })
+    finally:
+        db.close()
+
+
+@app.post("/api/cash-session/open")
+@jwt_required()
+def open_cash_session():
+    """Mở ca mới"""
+    user_id, tenant_id, role = current_user_info()
+    if role not in ("owner", "manager"): return err("Không có quyền", 403)
+    d = request.json or {}
+    db = get_db()
+    try:
+        # Kiểm tra đã có ca mở chưa
+        existing = db.query(CashSession).filter(
+            CashSession.tenant_id == tenant_id,
+            CashSession.status == "open"
+        ).first()
+        if existing: return err("Đã có ca đang mở. Chốt ca cũ trước!", 400)
+
+        u = db.query(User).filter(User.id == user_id).first()
+        s = CashSession(
+            tenant_id=tenant_id, opened_by=user_id,
+            opened_by_name=u.name if u else "",
+            opening_cash=float(d.get("opening_cash", 0)),
+            status="open",
+        )
+        db.add(s); db.commit()
+        return ok({"id": str(s.id), "message": "Đã mở ca", "opened_at": s.opened_at.isoformat()}, 201)
+    except Exception as e:
+        db.rollback(); return err(str(e), 500)
+    finally:
+        db.close()
+
+
+@app.post("/api/cash-session/<session_id>/close")
+@jwt_required()
+def close_cash_session(session_id):
+    """Chốt ca – nhập số tiền thực đếm được"""
+    user_id, tenant_id, role = current_user_info()
+    if role not in ("owner", "manager"): return err("Không có quyền", 403)
+    d = request.json or {}
+    closing_actual = float(d.get("closing_cash_actual", 0))
+    db = get_db()
+    try:
+        s = db.query(CashSession).filter(CashSession.id == session_id, CashSession.tenant_id == tenant_id).first()
+        if not s: return err("Không tìm thấy ca", 404)
+        if s.status != "open": return err("Ca này đã chốt rồi", 400)
+
+        # Tính doanh thu tiền mặt & chuyển khoản trong ca
+        rev_cash = db.execute(text("""
+            SELECT COALESCE(SUM(paid_amount), 0) FROM orders
+            WHERE tenant_id = :tid AND payment_method = 'cash'
+            AND is_deleted = false AND created_at >= :from_dt
+        """), {"tid": str(tenant_id), "from_dt": s.opened_at}).scalar() or 0
+
+        rev_transfer = db.execute(text("""
+            SELECT COALESCE(SUM(paid_amount), 0) FROM orders
+            WHERE tenant_id = :tid AND payment_method = 'transfer'
+            AND is_deleted = false AND created_at >= :from_dt
+        """), {"tid": str(tenant_id), "from_dt": s.opened_at}).scalar() or 0
+
+        total_expense = db.execute(text("""
+            SELECT COALESCE(SUM(amount), 0) FROM expenses
+            WHERE tenant_id = :tid AND created_at >= :from_dt
+        """), {"tid": str(tenant_id), "from_dt": s.opened_at}).scalar() or 0
+
+        expected = float(s.opening_cash or 0) + float(rev_cash) - float(total_expense)
+        diff = closing_actual - expected
+
+        u = db.query(User).filter(User.id == user_id).first()
+        s.closed_by = user_id
+        s.closed_by_name = u.name if u else ""
+        s.closed_at = datetime.now()
+        s.closing_cash_actual = closing_actual
+        s.closing_cash_expected = expected
+        s.cash_difference = diff
+        s.total_revenue_cash = float(rev_cash)
+        s.total_revenue_transfer = float(rev_transfer)
+        s.total_expense = float(total_expense)
+        s.status = "closed"
+        s.note = d.get("note", "")
+        db.commit()
+
+        return ok({
+            "message": "Đã chốt ca thành công!",
+            "opening_cash": float(s.opening_cash or 0),
+            "revenue_cash": float(rev_cash), "revenue_transfer": float(rev_transfer),
+            "total_expense": float(total_expense),
+            "expected": expected, "actual": closing_actual,
+            "difference": diff,
+            "status": "over" if diff > 0 else ("short" if diff < 0 else "match"),
+        })
+    except Exception as e:
+        db.rollback(); return err(str(e), 500)
+    finally:
+        db.close()
+
+
+@app.get("/api/cash-sessions")
+@jwt_required()
+def list_cash_sessions():
+    """Lịch sử các ca"""
+    _, tenant_id, role = current_user_info()
+    if role not in ("owner", "manager"): return err("Không có quyền", 403)
+    db = get_db()
+    try:
+        sessions = db.query(CashSession).filter(
+            CashSession.tenant_id == tenant_id
+        ).order_by(CashSession.opened_at.desc()).limit(30).all()
+        return ok([{
+            "id": str(s.id), "opened_by_name": s.opened_by_name or "",
+            "opened_at": s.opened_at.isoformat(),
+            "closed_at": s.closed_at.isoformat() if s.closed_at else None,
+            "opening_cash": float(s.opening_cash or 0),
+            "closing_cash_actual": float(s.closing_cash_actual or 0),
+            "closing_cash_expected": float(s.closing_cash_expected or 0),
+            "cash_difference": float(s.cash_difference or 0),
+            "total_revenue_cash": float(s.total_revenue_cash or 0),
+            "total_revenue_transfer": float(s.total_revenue_transfer or 0),
+            "total_expense": float(s.total_expense or 0),
+            "status": s.status, "note": s.note or "",
+        } for s in sessions])
+    finally:
+        db.close()
+
+
+# ============================================================
+# ===== LỊCH SỬ NỢ (DEBT TRANSACTIONS) =====
+# ============================================================
+
+@app.get("/api/customers/<customer_id>/debt-history")
+@jwt_required()
+def get_debt_history(customer_id):
+    _, tenant_id, _ = current_user_info()
+    db = get_db()
+    try:
+        txns = db.query(DebtTransaction).filter(
+            DebtTransaction.customer_id == customer_id,
+            DebtTransaction.tenant_id == tenant_id,
+        ).order_by(DebtTransaction.created_at.desc()).all()
+        return ok([{
+            "id": str(t.id), "type": t.type,
+            "amount": float(t.amount or 0),
+            "balance_after": float(t.balance_after or 0),
+            "order_no": t.order_no or "",
+            "payment_method": t.payment_method or "cash",
+            "note": t.note or "",
+            "created_by_name": t.created_by_name or "",
+            "created_at": t.created_at.isoformat(),
+        } for t in txns])
+    finally:
+        db.close()
+
+
+# ============================================================
+# ===== LỊCH SỬ HÓA CHẤT / HAIR RECORDS =====
+# ============================================================
+
+@app.get("/api/customers/<customer_id>/hair-records")
+@jwt_required()
+def get_hair_records(customer_id):
+    _, tenant_id, _ = current_user_info()
+    db = get_db()
+    try:
+        records = db.query(HairRecord).filter(
+            HairRecord.customer_id == customer_id,
+            HairRecord.tenant_id == tenant_id,
+        ).order_by(HairRecord.done_at.desc()).all()
+        return ok([{
+            "id": str(r.id),
+            "service_name": r.service_name or "",
+            "formula": r.formula or "",
+            "hair_condition": r.hair_condition or "",
+            "result_note": r.result_note or "",
+            "done_by_name": r.done_by_name or "",
+            "done_at": r.done_at.isoformat() if r.done_at else "",
+            "created_at": r.created_at.isoformat(),
+        } for r in records])
+    finally:
+        db.close()
+
+
+@app.post("/api/customers/<customer_id>/hair-records")
+@jwt_required()
+def create_hair_record(customer_id):
+    user_id, tenant_id, _ = current_user_info()
+    d = request.json or {}
+    db = get_db()
+    try:
+        cust = db.query(Customer).filter(Customer.id == customer_id, Customer.tenant_id == tenant_id).first()
+        if not cust: return err("Không tìm thấy khách", 404)
+
+        u = db.query(User).filter(User.id == user_id).first()
+        done_at = datetime.now()
+        if d.get("done_at"):
+            try: done_at = datetime.fromisoformat(d["done_at"])
+            except: pass
+
+        r = HairRecord(
+            tenant_id=tenant_id, customer_id=customer_id,
+            service_name=d.get("service_name", ""),
+            formula=d.get("formula", ""),
+            hair_condition=d.get("hair_condition", ""),
+            result_note=d.get("result_note", ""),
+            done_by_name=d.get("done_by_name") or (u.name if u else ""),
+            done_at=done_at,
+        )
+        if d.get("appointment_id"): r.appointment_id = d["appointment_id"]
+        if d.get("order_id"): r.order_id = d["order_id"]
+        db.add(r); db.commit()
+        return ok({"id": str(r.id), "message": "Đã thêm bản ghi"}, 201)
+    except Exception as e:
+        db.rollback(); return err(str(e), 500)
+    finally:
+        db.close()
+
+
+@app.put("/api/hair-records/<record_id>")
+@jwt_required()
+def update_hair_record(record_id):
+    _, tenant_id, _ = current_user_info()
+    d = request.json or {}
+    db = get_db()
+    try:
+        r = db.query(HairRecord).filter(HairRecord.id == record_id, HairRecord.tenant_id == tenant_id).first()
+        if not r: return err("Không tìm thấy", 404)
+        for k in ("service_name", "formula", "hair_condition", "result_note", "done_by_name"):
+            if k in d: setattr(r, k, d[k])
+        if d.get("done_at"):
+            try: r.done_at = datetime.fromisoformat(d["done_at"])
+            except: pass
+        db.commit(); return ok({"message": "Đã cập nhật"})
+    except Exception as e:
+        db.rollback(); return err(str(e), 500)
+    finally:
+        db.close()
+
+
+@app.delete("/api/hair-records/<record_id>")
+@jwt_required()
+def delete_hair_record(record_id):
+    _, tenant_id, role = current_user_info()
+    if role not in ("owner", "manager"): return err("Không có quyền", 403)
+    db = get_db()
+    try:
+        r = db.query(HairRecord).filter(HairRecord.id == record_id, HairRecord.tenant_id == tenant_id).first()
+        if not r: return err("Không tìm thấy", 404)
+        db.delete(r); db.commit()
+        return ok({"message": "Đã xóa"})
+    finally:
+        db.close()
+
+
+# ============================================================
+# ===== HOA HỒNG NÂNG CAO =====
+# ============================================================
+
+@app.get("/api/reports/commission")
+@jwt_required()
+def get_commission_report():
+    """Báo cáo hoa hồng theo tháng / ngày"""
+    _, tenant_id, role = current_user_info()
+    if role not in ("owner", "manager"): return err("Không có quyền", 403)
+    month = request.args.get("month")  # YYYY-MM
+    date_from = request.args.get("date_from")
+    date_to = request.args.get("date_to")
+    db = get_db()
+    try:
+        q = db.query(CommissionRecord).filter(CommissionRecord.tenant_id == tenant_id)
+        if month:
+            q = q.filter(func.to_char(CommissionRecord.created_at, "YYYY-MM") == month)
+        elif date_from and date_to:
+            q = q.filter(
+                func.date(CommissionRecord.created_at) >= to_date(date_from),
+                func.date(CommissionRecord.created_at) <= to_date(date_to),
+            )
+        records = q.order_by(CommissionRecord.created_at.desc()).all()
+
+        # Nhóm theo nhân viên
+        staff_summary = {}
+        for r in records:
+            sid = str(r.staff_id) if r.staff_id else r.staff_name
+            if sid not in staff_summary:
+                staff_summary[sid] = {
+                    "staff_name": r.staff_name or "",
+                    "total_commission": 0,
+                    "items": []
+                }
+            staff_summary[sid]["total_commission"] += float(r.commission_amount or 0)
+            staff_summary[sid]["items"].append({
+                "order_no": r.order_no or "",
+                "product_name": r.product_name or "",
+                "role": r.role,
+                "item_total": float(r.item_total or 0),
+                "commission_pct": float(r.commission_pct or 0),
+                "commission_amount": float(r.commission_amount or 0),
+                "created_at": r.created_at.isoformat(),
+            })
+
+        return ok({
+            "summary": list(staff_summary.values()),
+            "total": sum(float(r.commission_amount or 0) for r in records),
+        })
+    finally:
+        db.close()
+
+
+# ============================================================
+# ===== MIGRATION: Tạo bảng mới (chạy 1 lần) =====
+# ============================================================
+
+@app.post("/api/super/migrate")
+def run_migration():
+    """Tạo các bảng mới vào DB. Chỉ dùng trong quá trình dev/deploy."""
+    secret = request.headers.get("X-Migrate-Secret", "")
+    if secret != os.getenv("MIGRATE_SECRET", "localpos-migrate-2026"):
+        return err("Forbidden", 403)
+    try:
+        Base.metadata.create_all(engine, checkfirst=True)
+        # Thêm cột mới vào bảng cũ (nếu chưa có)
+        alter_stmts = [
+            "ALTER TABLE products ADD COLUMN IF NOT EXISTS commission_main_pct NUMERIC(5,2) DEFAULT 0",
+            "ALTER TABLE products ADD COLUMN IF NOT EXISTS commission_assist_pct NUMERIC(5,2) DEFAULT 0",
+            "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS main_staff_id UUID",
+            "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS main_staff_name VARCHAR(100)",
+            "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS assist_staff_id UUID",
+            "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS assist_staff_name VARCHAR(100)",
+            "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS commission_main_pct NUMERIC(5,2) DEFAULT 0",
+            "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS commission_assist_pct NUMERIC(5,2) DEFAULT 0",
+            "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS commission_main_amount NUMERIC(12,0) DEFAULT 0",
+            "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS commission_assist_amount NUMERIC(12,0) DEFAULT 0",
+        ]
+        with engine.connect() as conn:
+            for stmt in alter_stmts:
+                try:
+                    conn.execute(text(stmt))
+                except Exception as e:
+                    print(f"[migrate] skip: {e}")
+            conn.commit()
+        return ok({"message": "Migration thành công!"})
+    except Exception as e:
+        return err(str(e), 500)
+
+
 if __name__ == "__main__":
-    app.run(debug=True, port=8000, host="0.0.0.0")
+    import os
+    port = int(os.getenv('PORT', 8000))
+    app.run(host='0.0.0.0', port=port, debug=False)

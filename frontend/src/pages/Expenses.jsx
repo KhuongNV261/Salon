@@ -30,8 +30,56 @@ export default function Expenses() {
   const [dateRange, setDateRange] = useState([dayjs().startOf('month'), dayjs()])
   const [catFilter, setCatFilter] = useState(null)
   const [form] = Form.useForm()
+  // Ca lam viec
+  const [currentSession, setCurrentSession] = useState(null)
+  const [sessionLoading, setSessionLoading] = useState(false)
+  const [openCaModal, setOpenCaModal] = useState(false)
+  const [closeCaModal, setCloseCaModal] = useState(false)
+  const [openingCash, setOpeningCash] = useState(0)
+  const [closingCash, setClosingCash] = useState(0)
+  const [closeResult, setCloseResult] = useState(null)
+  const [caNote, setCaNote] = useState('')
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    loadSession()
+  }, [])
+
+  const loadSession = async () => {
+    try {
+      const r = await api.get('/api/cash-session/current')
+      setCurrentSession(r.data)
+    } catch {}
+  }
+
+  const handleOpenCa = async () => {
+    setSessionLoading(true)
+    try {
+      await api.post('/api/cash-session/open', { opening_cash: openingCash })
+      message.success('Da mo ca!')
+      setOpenCaModal(false)
+      setOpeningCash(0)
+      loadSession()
+    } catch (e) {
+      message.error(e.response?.data?.error || 'Loi mo ca')
+    } finally { setSessionLoading(false) }
+  }
+
+  const handleCloseCa = async () => {
+    if (!currentSession) return
+    setSessionLoading(true)
+    try {
+      const r = await api.post(`/api/cash-session/${currentSession.id}/close`, {
+        closing_cash_actual: closingCash, note: caNote,
+      })
+      setCloseResult(r.data)
+      setCloseCaModal(false)
+      setCurrentSession(null)
+      message.success(r.data.message)
+    } catch (e) {
+      message.error(e.response?.data?.error || 'Loi chot ca')
+    } finally { setSessionLoading(false) }
+  }
 
   const load = async (range = dateRange) => {
     setLoading(true)
@@ -103,6 +151,73 @@ export default function Expenses() {
           <PlusOutlined /> Thêm
         </button>
       </div>
+
+      {/* Banner Ca Làm Việc */}
+      {currentSession ? (
+        <div style={{
+          background: 'linear-gradient(135deg, #f6ffed, #d9f7be)',
+          border: '1px solid #b7eb8f', borderRadius: 12,
+          padding: '12px 16px', marginBottom: 12,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: '#389e0d' }}>✅ Ca đang mở</div>
+            <div style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+              Mở lúc: {dayjs(currentSession.opened_at).format('HH:mm DD/MM')}
+              {currentSession.opened_by_name && ` · ${currentSession.opened_by_name}`}
+            </div>
+            <div style={{ fontSize: 12, color: '#666' }}>
+              Tiền đầu ca: <b>{Number(currentSession.opening_cash || 0).toLocaleString('vi-VN')}đ</b>
+            </div>
+          </div>
+          <button onClick={() => { setClosingCash(0); setCaNote(''); setCloseCaModal(true) }} style={{
+            background: 'linear-gradient(135deg, #ff7875, #ff4d4f)',
+            border: 'none', borderRadius: 10, padding: '8px 14px',
+            color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+          }}>⏹ Chốt ca</button>
+        </div>
+      ) : (
+        <div style={{
+          background: '#fff8e1', border: '1px solid #ffe082',
+          borderRadius: 12, padding: '12px 16px', marginBottom: 12,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        }}>
+          <div style={{ fontSize: 13, color: '#856404' }}>⚠️ Chưa có ca nào đang mở</div>
+          <button onClick={() => { setOpeningCash(0); setOpenCaModal(true) }} style={{
+            background: 'linear-gradient(135deg, #52c41a, #389e0d)',
+            border: 'none', borderRadius: 10, padding: '7px 14px',
+            color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+          }}>▶ Mở ca</button>
+        </div>
+      )}
+
+      {/* Kết quả Chốt Ca */}
+      {closeResult && (
+        <div style={{
+          background: '#fff', border: `2px solid ${closeResult.difference === 0 ? '#52c41a' : closeResult.difference > 0 ? '#1677ff' : '#ff4d4f'}`,
+          borderRadius: 14, padding: '14px 16px', marginBottom: 12,
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>
+            {closeResult.difference === 0 ? '✅ Ca khớp tiền!' : closeResult.difference > 0 ? '📈 Ca dư tiền' : '📉 Ca thiếu tiền'}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 13 }}>
+            <div>Tiền đầu ca: <b>{Number(closeResult.opening_cash).toLocaleString('vi-VN')}đ</b></div>
+            <div>Thu TM: <b style={{ color: '#52c41a' }}>{Number(closeResult.revenue_cash).toLocaleString('vi-VN')}đ</b></div>
+            <div>Thu CK: <b style={{ color: '#1677ff' }}>{Number(closeResult.revenue_transfer).toLocaleString('vi-VN')}đ</b></div>
+            <div>Chi: <b style={{ color: '#ff4d4f' }}>{Number(closeResult.total_expense).toLocaleString('vi-VN')}đ</b></div>
+            <div>Phải có: <b>{Number(closeResult.expected).toLocaleString('vi-VN')}đ</b></div>
+            <div>Thực đếm: <b>{Number(closeResult.actual).toLocaleString('vi-VN')}đ</b></div>
+            <div style={{ gridColumn: 'span 2', fontWeight: 700, fontSize: 15, marginTop: 6,
+              color: closeResult.difference === 0 ? '#52c41a' : closeResult.difference > 0 ? '#1677ff' : '#ff4d4f' }}>
+              Lệch: {closeResult.difference > 0 ? '+' : ''}{Number(closeResult.difference).toLocaleString('vi-VN')}đ
+            </div>
+          </div>
+          <button onClick={() => setCloseResult(null)} style={{
+            marginTop: 10, background: '#f5f5f5', border: 'none',
+            borderRadius: 8, padding: '5px 12px', fontSize: 12, cursor: 'pointer', color: '#888'
+          }}>Đóng</button>
+        </div>
+      )}
 
       {/* Bộ lọc ngày */}
       <div className="m-card" style={{ marginBottom: 12, padding: '12px 14px' }}>
@@ -282,6 +397,87 @@ export default function Expenses() {
             <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Modal Mở Ca */}
+      <Modal
+        title="▶ Mở ca làm việc"
+        open={openCaModal}
+        onCancel={() => setOpenCaModal(false)}
+        onOk={handleOpenCa}
+        okText="Mở ca"
+        cancelText="Hủy"
+        confirmLoading={sessionLoading}
+      >
+        <div style={{ padding: '8px 0' }}>
+          <div style={{ fontSize: 14, color: '#555', marginBottom: 16 }}>
+            Nhập số tiền mặt đang có trong két khi bắt đầu ca:
+          </div>
+          <InputNumber
+            value={openingCash}
+            onChange={v => setOpeningCash(v || 0)}
+            style={{ width: '100%' }}
+            size="large"
+            min={0}
+            step={100000}
+            placeholder="Tiền đầu ca (VD: 1000000)"
+            formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+            parser={v => v?.replace(/,/g, '')}
+            prefix="₫"
+          />
+          <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {[0, 500000, 1000000, 2000000].map(v => (
+              <button key={v} onClick={() => setOpeningCash(v)} style={{
+                background: openingCash === v ? '#667eea' : '#f5f5f5',
+                color: openingCash === v ? '#fff' : '#333',
+                border: 'none', borderRadius: 8, padding: '5px 12px',
+                cursor: 'pointer', fontSize: 13
+              }}>{v === 0 ? 'Không có' : `${(v/1000)}k`}</button>
+            ))}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal Chốt Ca */}
+      <Modal
+        title="⏹ Chốt ca làm việc"
+        open={closeCaModal}
+        onCancel={() => setCloseCaModal(false)}
+        onOk={handleCloseCa}
+        okText="Chốt ca"
+        okButtonProps={{ danger: true }}
+        cancelText="Hủy"
+        confirmLoading={sessionLoading}
+      >
+        <div style={{ padding: '8px 0' }}>
+          <div style={{ background: '#f8f9ff', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
+            <div>Ca mở lúc: <b>{currentSession ? dayjs(currentSession.opened_at).format('HH:mm DD/MM/YYYY') : '-'}</b></div>
+            <div>Tiền đầu ca: <b>{Number(currentSession?.opening_cash || 0).toLocaleString('vi-VN')}đ</b></div>
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#555', marginBottom: 8 }}>
+            Đếm tiền trong két thực tế:
+          </div>
+          <InputNumber
+            value={closingCash}
+            onChange={v => setClosingCash(v || 0)}
+            style={{ width: '100%' }}
+            size="large"
+            min={0}
+            step={100000}
+            placeholder="Số tiền đếm được trong két"
+            formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+            parser={v => v?.replace(/,/g, '')}
+            prefix="₫"
+          />
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>Ghi chú (tuỳ chọn)</div>
+            <Input
+              value={caNote}
+              onChange={e => setCaNote(e.target.value)}
+              placeholder="Ghi chú về ca này..."
+            />
+          </div>
+        </div>
       </Modal>
     </div>
   )

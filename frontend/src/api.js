@@ -6,8 +6,13 @@ const baseURL = import.meta.env.VITE_API_URL || ''
 const api = axios.create({ baseURL })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  if (config.url.startsWith('/api/super/')) {
+    const superToken = localStorage.getItem('super_token')
+    if (superToken) config.headers.Authorization = `Bearer ${superToken}`
+  } else {
+    const token = localStorage.getItem('token')
+    if (token) config.headers.Authorization = `Bearer ${token}`
+  }
   return config
 })
 
@@ -15,7 +20,9 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401 && !window.location.pathname.startsWith('/super-admin')) {
-      localStorage.clear()
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      localStorage.removeItem('tenant')
       // Redirect về trang login của slug hiện tại
       const parts = window.location.pathname.split('/')
       const slug = parts[1]

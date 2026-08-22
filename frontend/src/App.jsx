@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { Routes, Route, Navigate, Link, useNavigate, useLocation, useParams } from 'react-router-dom'
-import { Spin, Result, Badge, Popover, List, Button, Tag } from 'antd'
+import { Spin, Result, Badge, Popover, List, Button, Tag, Drawer } from 'antd'
 import {
   ShoppingCartOutlined, BarChartOutlined, LogoutOutlined,
   AppstoreOutlined, TeamOutlined, CalendarOutlined, SettingOutlined,
   UserOutlined, InboxOutlined, DashboardOutlined, WalletOutlined,
-  BellOutlined, BellFilled, PhoneOutlined, CloseOutlined
+  BellOutlined, BellFilled, PhoneOutlined, CloseOutlined, MenuOutlined
 } from '@ant-design/icons'
 import Login from './pages/Login'
 import POS from './pages/POS'
@@ -18,33 +18,33 @@ import Customers from './pages/Customers'
 import Inventory from './pages/Inventory'
 import Dashboard from './pages/Dashboard'
 import Expenses from './pages/Expenses'
+import Packages from './pages/Packages'
 import LandingPage from './pages/LandingPage'
 import SuperAdminLogin from './pages/SuperAdminLogin'
 import SuperAdminDashboard from './pages/SuperAdminDashboard'
 import useStore from './store'
 import api from './api'
 import 'antd/dist/reset.css'
+import './themes/themes.css'
 import './index.css'
 
-// Tab bar thay đổi theo role
-const getNavTabs = (role) => {
-  const base = [
-    { key: '',           icon: <ShoppingCartOutlined />, label: 'Bán hàng' },
-    { key: 'booking',    icon: <CalendarOutlined />,     label: 'Lịch hẹn' },
-    { key: 'customers',  icon: <UserOutlined />,         label: 'Khách hàng' },
-    { key: 'inventory',  icon: <InboxOutlined />,        label: 'Kho' },
-    { key: 'reports',    icon: <BarChartOutlined />,     label: 'Báo cáo' },
-  ]
+// Tab bar thay đổi theo role và tính năng được bật
+const getNavTabs = (role, features = {}) => {
+  let tabs = []
   if (role === 'owner' || role === 'manager') {
-    return [
-      { key: 'dashboard', icon: <DashboardOutlined />,   label: 'Tổng quan' },
-      { key: '',          icon: <ShoppingCartOutlined />, label: 'Bán hàng' },
-      { key: 'booking',   icon: <CalendarOutlined />,    label: 'Lịch hẹn' },
-      { key: 'customers', icon: <UserOutlined />,        label: 'Khách' },
-      { key: 'expenses',  icon: <WalletOutlined />,      label: 'Chi phí' },
+    tabs = [
+      { key: 'dashboard', icon: <DashboardOutlined />,   label: 'Tổng quan', feature: 'dashboard' },
+      { key: '',          icon: <ShoppingCartOutlined />, label: 'Bán hàng', feature: 'pos' },
+      { key: 'booking',   icon: <CalendarOutlined />,    label: 'Lịch hẹn',  feature: 'booking' },
+      { key: 'customers', icon: <UserOutlined />,        label: 'Khách',     feature: 'customers' },
+      { key: 'expenses',  icon: <WalletOutlined />,      label: 'Chi phí',   feature: 'expenses' },
+    ]
+  } else {
+    tabs = [
+      { key: 'booking',   icon: <CalendarOutlined />,    label: 'Lịch hẹn',  feature: 'booking' },
     ]
   }
-  return base
+  return tabs.filter(t => features[t.feature] !== false)
 }
 
 // ─── Guard: yêu cầu đăng nhập ───────────────────────
@@ -238,11 +238,13 @@ function NotificationBell({ slug }) {
 }
 
 // ─── Shell layout mobile ─────────────────────────────
-function MobileLayout({ children }) {
+function MobileLayout({ children, shopInfo }) {
   const { user, tenant, logout } = useStore()
   const navigate = useNavigate()
   const location = useLocation()
   const { slug } = useParams()
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const isOwnerOrManager = user?.role === 'owner' || user?.role === 'manager'
 
   const handleLogout = () => {
     logout()
@@ -250,13 +252,17 @@ function MobileLayout({ children }) {
   }
 
   const currentPage = location.pathname.replace(`/${slug}`, '').replace(/^\//, '')
-  const NAV_TABS = getNavTabs(user?.role)
+  const NAV_TABS = getNavTabs(user?.role, shopInfo?.features)
 
   return (
     <div className="mobile-app">
       <header className="mobile-header">
         <div className="mobile-header-left">
-          <span className="header-logo">🏪</span>
+          {isOwnerOrManager ? (
+            <MenuOutlined style={{ fontSize: 20, color: '#fff', marginRight: 10, cursor: 'pointer' }} onClick={() => setDrawerOpen(true)} />
+          ) : (
+            <span className="header-logo">🏪</span>
+          )}
           <div>
             <div className="header-shop-name">{tenant?.name || 'LocalPOS'}</div>
             <div className="header-user-name">{user?.name} · <span style={{ textTransform: 'capitalize', opacity: 0.7 }}>{user?.role}</span></div>
@@ -268,7 +274,7 @@ function MobileLayout({ children }) {
           <NotificationBell slug={slug} />
 
           {/* Cài đặt (chỉ owner/manager) */}
-          {(user?.role === 'owner' || user?.role === 'manager') && (
+          {(user?.role === 'owner' || user?.role === 'manager') && shopInfo?.features?.settings !== false && (
             <Link to={`/${slug}/settings`} style={{
               background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)',
               borderRadius: 8, color: '#fff', width: 36, height: 36,
@@ -284,6 +290,49 @@ function MobileLayout({ children }) {
           </button>
         </div>
       </header>
+
+      {/* Side Menu cho Chủ */}
+      <Drawer
+        title="Danh mục quản lý"
+        placement="left"
+        onClose={() => setDrawerOpen(false)}
+        open={drawerOpen}
+        styles={{ body: { padding: 0 } }}
+        width={260}
+      >
+        <List
+          dataSource={[
+            { key: 'dashboard', icon: <DashboardOutlined />, label: 'Tổng quan' },
+            { key: '', icon: <ShoppingCartOutlined />, label: 'Bán hàng' },
+            { key: 'booking', icon: <CalendarOutlined />, label: 'Lịch hẹn' },
+            { key: 'products', icon: <AppstoreOutlined />, label: 'Dịch vụ / Sản phẩm' },
+            { key: 'customers', icon: <UserOutlined />, label: 'Khách hàng' },
+            { key: 'expenses', icon: <WalletOutlined />, label: 'Chi phí / Chốt ca' },
+            { key: 'packages', icon: <AppstoreOutlined />, label: 'Gói Dịch Vụ / Thẻ' },
+            { key: 'inventory', icon: <InboxOutlined />, label: 'Kho hàng' },
+            { key: 'reports', icon: <BarChartOutlined />, label: 'Báo cáo' },
+            { key: 'staff', icon: <TeamOutlined />, label: 'Nhân viên' },
+            { key: 'settings', icon: <SettingOutlined />, label: 'Cài đặt' },
+          ].filter(item => shopInfo?.features?.[item.key === '' ? 'pos' : item.key] !== false)}
+          renderItem={item => (
+            <List.Item style={{ padding: 0 }}>
+              <Link
+                to={`/${slug}/${item.key}`}
+                onClick={() => setDrawerOpen(false)}
+                style={{
+                  display: 'flex', alignItems: 'center', width: '100%',
+                  padding: '16px 24px', color: '#333', fontSize: 16,
+                  textDecoration: 'none', background: currentPage === item.key || (!currentPage && item.key === '') ? '#f0f5ff' : 'transparent',
+                  fontWeight: currentPage === item.key || (!currentPage && item.key === '') ? 700 : 400
+                }}
+              >
+                <span style={{ marginRight: 14, fontSize: 18, color: '#667eea' }}>{item.icon}</span>
+                {item.label}
+              </Link>
+            </List.Item>
+          )}
+        />
+      </Drawer>
 
       <main className="mobile-content">{children}</main>
 
@@ -307,14 +356,15 @@ function MobileLayout({ children }) {
 }
 
 // ─── ShopLoader: resolve slug → shop info ────────────
+const VALID_THEMES = ['classic', 'nature', 'luxury', 'cute']
+
 function ShopLoader() {
   const { slug } = useParams()
   const [shopInfo, setShopInfo] = useState(null)
   const [notFound, setNotFound] = useState(false)
   const [loading, setLoading] = useState(true)
-  const navigate = useNavigate()
-  const location = useLocation()
   const { user, tenant, setAuth, logout } = useStore()
+  const wrapperRef = React.useRef(null)
 
   useEffect(() => { loadShop() }, [slug])
 
@@ -323,12 +373,23 @@ function ShopLoader() {
     try {
       const res = await api.get(`/api/public/shop/${slug}`)
       setShopInfo(res.data)
+      const theme = VALID_THEMES.includes(res.data?.theme) ? res.data.theme : 'classic'
+      if (wrapperRef.current) {
+        wrapperRef.current.setAttribute('data-theme', theme)
+      }
     } catch {
       setNotFound(true)
     } finally {
       setLoading(false)
     }
   }
+
+  // Apply theme mỗi khi shopInfo thay đổi (chủ tiệm đổi theme trong Settings)
+  useEffect(() => {
+    if (!shopInfo || !wrapperRef.current) return
+    const theme = VALID_THEMES.includes(shopInfo.theme) ? shopInfo.theme : 'classic'
+    wrapperRef.current.setAttribute('data-theme', theme)
+  }, [shopInfo])
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100dvh', flexDirection: 'column', gap: 16, background: 'linear-gradient(135deg, #667eea, #764ba2)' }}>
@@ -348,41 +409,76 @@ function ShopLoader() {
     </div>
   )
 
+  const features = shopInfo?.features || {}
+  const isEnabled = (key) => features[key] !== false
+  const isOwnerOrManager = user?.role === 'owner' || user?.role === 'manager'
+
   return (
-    <Routes>
-      <Route path="login" element={<Login shopInfo={shopInfo} />} />
-      <Route path="dashboard" element={
-        <PrivateRoute><MobileLayout><Dashboard /></MobileLayout></PrivateRoute>
-      } />
-      <Route path="" element={
-        <PrivateRoute><MobileLayout><POS /></MobileLayout></PrivateRoute>
-      } />
-      <Route path="booking" element={
-        <PrivateRoute><MobileLayout><Booking /></MobileLayout></PrivateRoute>
-      } />
-      <Route path="customers" element={
-        <PrivateRoute><MobileLayout><Customers /></MobileLayout></PrivateRoute>
-      } />
-      <Route path="inventory" element={
-        <PrivateRoute><MobileLayout><Inventory /></MobileLayout></PrivateRoute>
-      } />
-      <Route path="products" element={
-        <PrivateRoute><MobileLayout><Products /></MobileLayout></PrivateRoute>
-      } />
-      <Route path="staff" element={
-        <PrivateRoute><MobileLayout><Staff /></MobileLayout></PrivateRoute>
-      } />
-      <Route path="reports" element={
-        <PrivateRoute><MobileLayout><Reports /></MobileLayout></PrivateRoute>
-      } />
-      <Route path="expenses" element={
-        <PrivateRoute><MobileLayout><Expenses /></MobileLayout></PrivateRoute>
-      } />
-      <Route path="settings" element={
-        <PrivateRoute><MobileLayout><Settings /></MobileLayout></PrivateRoute>
-      } />
-      <Route path="*" element={<Navigate to={`/${slug}/`} replace />} />
-    </Routes>
+    <div ref={wrapperRef} data-theme={VALID_THEMES.includes(shopInfo?.theme) ? shopInfo.theme : 'classic'} style={{ minHeight: '100dvh' }}>
+      <Routes>
+        <Route path="login" element={<Login shopInfo={shopInfo} />} />
+        {isEnabled('dashboard') && isOwnerOrManager && (
+          <Route path="dashboard" element={
+            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Dashboard /></MobileLayout></PrivateRoute>
+          } />
+        )}
+        <Route path="" element={
+          <PrivateRoute>
+            {isOwnerOrManager ? (
+              <MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><POS /></MobileLayout>
+            ) : (
+              <Navigate to={`/${slug}/booking`} replace />
+            )}
+          </PrivateRoute>
+        } />
+        {isEnabled('booking') && (
+          <Route path="booking" element={
+            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Booking /></MobileLayout></PrivateRoute>
+          } />
+        )}
+        {isEnabled('customers') && isOwnerOrManager && (
+          <Route path="customers" element={
+            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Customers /></MobileLayout></PrivateRoute>
+          } />
+        )}
+        {isEnabled('inventory') && isOwnerOrManager && (
+          <Route path="inventory" element={
+            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Inventory /></MobileLayout></PrivateRoute>
+          } />
+        )}
+        {isOwnerOrManager && (
+          <Route path="products" element={
+            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Products /></MobileLayout></PrivateRoute>
+          } />
+        )}
+        {isEnabled('staff') && isOwnerOrManager && (
+          <Route path="staff" element={
+            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Staff /></MobileLayout></PrivateRoute>
+          } />
+        )}
+        {isEnabled('reports') && isOwnerOrManager && (
+          <Route path="reports" element={
+            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Reports /></MobileLayout></PrivateRoute>
+          } />
+        )}
+        {isEnabled('expenses') && isOwnerOrManager && (
+          <Route path="expenses" element={
+            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Expenses /></MobileLayout></PrivateRoute>
+          } />
+        )}
+        {isOwnerOrManager && (
+          <Route path="packages" element={
+            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Packages /></MobileLayout></PrivateRoute>
+          } />
+        )}
+        {isEnabled('settings') && isOwnerOrManager && (
+          <Route path="settings" element={
+            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Settings setShopInfo={setShopInfo} /></MobileLayout></PrivateRoute>
+          } />
+        )}
+        <Route path="*" element={<Navigate to={`/${slug}/`} replace />} />
+      </Routes>
+    </div>
   )
 }
 
