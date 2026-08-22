@@ -10,5 +10,7 @@ services:
         value: postgresql://neondb_owner:npg_nsE3jBrdlxo8@ep-rough-firefly-azgm5tgr-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
       - key: SECRET_KEY
         value: localpos-prod-secret-2026-khuong2601
+      - key: SUPER_ADMIN_PASSWORD
+        value: Khuong2601@
     healthCheckPath: /api/health
     plan: free
