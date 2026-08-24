@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import {
   Table, Button, Modal, Form, Input, InputNumber, Select,
   Space, Tag, Popconfirm, message, Card, Typography, Avatar,
-  Drawer, Statistic, Row, Col, Badge, DatePicker, Divider, Switch, Tooltip
+  Drawer, Statistic, Row, Col, Badge, DatePicker, Divider, Switch, Tooltip, Grid
 } from 'antd'
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, UserOutlined,
@@ -13,6 +13,7 @@ import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
+const { useBreakpoint } = Grid
 const fmtMoney = (n) => Number(n || 0).toLocaleString('vi-VN') + 'đ'
 
 const ROLE_LABELS = {
@@ -27,11 +28,13 @@ export default function Staff() {
   const [modal, setModal] = useState(false)
   const [editing, setEditing] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [toggling, setToggling] = useState(null)   // id đang toggling
+  const [toggling, setToggling] = useState(null)
   const [commDrawer, setCommDrawer] = useState(null)
   const [commData, setCommData] = useState(null)
   const [dateRange, setDateRange] = useState([dayjs().startOf('month'), dayjs()])
   const [form] = Form.useForm()
+  const screens = useBreakpoint()
+  const isMobile = !screens.md
 
   useEffect(() => { load() }, [])
 
@@ -78,7 +81,6 @@ export default function Staff() {
     load()
   }
 
-  // Toggle thông báo sắp tới lịch
   const toggleNotify = async (record) => {
     setToggling(record.id)
     try {
@@ -86,10 +88,9 @@ export default function Staff() {
       const nowOn = res.data.notify_upcoming
       message.success(
         nowOn
-          ? `🔔 Bật thông báo cho ${record.name} — khi có lịch hẹn trong 30 phút sẽ hiện cảnh báo`
+          ? `🔔 Bật thông báo cho ${record.name}`
           : `🔕 Tắt thông báo cho ${record.name}`
       )
-      // Update local state ngay mà không cần reload
       setStaff(prev => prev.map(s => s.id === record.id ? { ...s, notify_upcoming: nowOn } : s))
     } catch (e) {
       message.error(e.response?.data?.error || 'Lỗi')
@@ -111,14 +112,15 @@ export default function Staff() {
 
   const notifyCount = staff.filter(s => s.notify_upcoming && s.is_active).length
 
+  // ========= Columns cho desktop =========
   const columns = [
     {
       title: 'Nhân viên',
       render: (_, r) => (
         <Space>
-          <Avatar style={{ background: r.role === 'owner' ? '#f39c12' : '#667eea' }} icon={<UserOutlined />} />
+          <Avatar style={{ background: r.role === 'owner' ? '#f39c12' : '#667eea', flexShrink: 0 }} icon={<UserOutlined />} />
           <div>
-            <div style={{ fontWeight: 600 }}>{r.name}</div>
+            <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{r.name}</div>
             <Text type="secondary" style={{ fontSize: 12 }}>
               {r.phone && (
                 <a href={`tel:${r.phone}`} style={{ color: '#888' }}>
@@ -155,38 +157,31 @@ export default function Staff() {
       render: v => <Badge status={v ? 'success' : 'error'} text={v ? 'Đang làm' : 'Nghỉ việc'} />
     },
     {
-      // Cột mới: toggle nhận thông báo sắp tới lịch
       title: (
-        <Tooltip title="Bật để nhận cảnh báo khi nhân viên này sắp có lịch hẹn trong 30 phút. Chủ/lễ tân sẽ thấy thông báo để chủ động liên hệ khách.">
+        <Tooltip title="Bật để nhận cảnh báo khi nhân viên này sắp có lịch hẹn trong 30 phút.">
           <span style={{ cursor: 'help' }}>🔔 Nhắc lịch <span style={{ fontSize: 10, color: '#aaa' }}>(?)</span></span>
         </Tooltip>
       ),
       dataIndex: 'notify_upcoming',
       align: 'center',
       render: (val, record) => (
-        <Tooltip
-          title={val
-            ? `Đang bật — sẽ nhận cảnh báo khi ${record.name} có lịch trong 30 phút`
-            : `Bật để theo dõi lịch hẹn của ${record.name}`}
+        <button
+          onClick={() => toggleNotify(record)}
+          disabled={toggling === record.id || !record.is_active}
+          style={{
+            background: 'none', border: 'none', cursor: record.is_active ? 'pointer' : 'not-allowed',
+            padding: '4px 8px', borderRadius: 8,
+            transition: 'all 0.2s',
+            opacity: record.is_active ? 1 : 0.4,
+          }}
         >
-          <button
-            onClick={() => toggleNotify(record)}
-            disabled={toggling === record.id || !record.is_active}
-            style={{
-              background: 'none', border: 'none', cursor: record.is_active ? 'pointer' : 'not-allowed',
-              padding: '4px 8px', borderRadius: 8,
-              transition: 'all 0.2s',
-              opacity: record.is_active ? 1 : 0.4,
-            }}
-          >
-            {toggling === record.id
-              ? <span style={{ color: '#aaa', fontSize: 18 }}>⏳</span>
-              : val
-                ? <span style={{ fontSize: 20, filter: 'drop-shadow(0 0 4px #fa8c16)' }}>🔔</span>
-                : <span style={{ fontSize: 20, opacity: 0.35 }}>🔕</span>
-            }
-          </button>
-        </Tooltip>
+          {toggling === record.id
+            ? <span style={{ color: '#aaa', fontSize: 18 }}>⏳</span>
+            : val
+              ? <span style={{ fontSize: 20, filter: 'drop-shadow(0 0 4px #fa8c16)' }}>🔔</span>
+              : <span style={{ fontSize: 20, opacity: 0.35 }}>🔕</span>
+          }
+        </button>
       )
     },
     {
@@ -214,6 +209,100 @@ export default function Staff() {
     }
   ]
 
+  // ========= Card mobile cho từng nhân viên =========
+  const StaffCard = ({ r }) => {
+    const roleInfo = ROLE_LABELS[r.role] || { label: r.role, color: 'default' }
+    return (
+      <Card
+        key={r.id}
+        style={{
+          marginBottom: 10,
+          borderRadius: 12,
+          border: '1px solid #f0f0f0',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+          opacity: r.is_active ? 1 : 0.6,
+        }}
+        bodyStyle={{ padding: '12px 14px' }}
+      >
+        {/* Dòng 1: Avatar + Tên + Trạng thái */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <Avatar
+            size={44}
+            style={{ background: r.role === 'owner' ? '#f39c12' : '#667eea', flexShrink: 0 }}
+            icon={<UserOutlined />}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, lineHeight: '20px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {r.name}
+            </div>
+            {r.phone && (
+              <a href={`tel:${r.phone}`} style={{ color: '#888', fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <PhoneOutlined style={{ fontSize: 12 }} />{r.phone}
+              </a>
+            )}
+          </div>
+          <Badge status={r.is_active ? 'success' : 'error'} text={r.is_active ? 'Đang làm' : 'Nghỉ việc'} style={{ flexShrink: 0, fontSize: 12 }} />
+        </div>
+
+        {/* Dòng 2: Tags */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          <Tag color={roleInfo.color} style={{ margin: 0 }}>{roleInfo.label}</Tag>
+          <Tag color={r.commission_rate > 0 ? 'purple' : 'default'} style={{ margin: 0 }}>
+            {r.commission_rate > 0 ? `${r.commission_rate}% hoa hồng` : 'Không hoa hồng'}
+          </Tag>
+          {r.last_login_at && (
+            <Tag color="default" style={{ margin: 0, fontSize: 11 }}>
+              Đăng nhập: {dayjs(r.last_login_at).format('DD/MM HH:mm')}
+            </Tag>
+          )}
+        </div>
+
+        {/* Dòng 3: Nút hành động */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Button
+            size="small" icon={<TrophyOutlined />} type="primary" ghost
+            onClick={() => openCommission(r)}
+            style={{ flex: 1, fontSize: 12 }}
+          >
+            Hoa hồng
+          </Button>
+          <Button
+            size="small" icon={<EditOutlined />}
+            onClick={() => openModal(r)}
+            style={{ flex: 1, fontSize: 12 }}
+          >
+            Sửa
+          </Button>
+
+          {/* Toggle nhắc lịch */}
+          <Tooltip title={r.notify_upcoming ? 'Tắt thông báo' : 'Bật thông báo lịch hẹn'}>
+            <button
+              onClick={() => toggleNotify(r)}
+              disabled={toggling === r.id || !r.is_active}
+              style={{
+                background: r.notify_upcoming ? '#fff7e6' : '#f5f5f5',
+                border: `1px solid ${r.notify_upcoming ? '#ffd591' : '#d9d9d9'}`,
+                borderRadius: 8, cursor: r.is_active ? 'pointer' : 'not-allowed',
+                padding: '2px 10px', height: 28, display: 'flex', alignItems: 'center',
+                opacity: r.is_active ? 1 : 0.4, transition: 'all 0.2s'
+              }}
+            >
+              {toggling === r.id ? '⏳' : r.notify_upcoming ? '🔔' : '🔕'}
+            </button>
+          </Tooltip>
+
+          <Popconfirm
+            title="Vô hiệu hóa tài khoản này?"
+            onConfirm={() => deleteStaff(r.id)}
+            okText="Xác nhận" cancelText="Hủy"
+          >
+            <Button size="small" danger icon={<DeleteOutlined />} disabled={r.role === 'owner'} />
+          </Popconfirm>
+        </div>
+      </Card>
+    )
+  }
+
   const commColumns = [
     { title: 'Sản phẩm / Dịch vụ', dataIndex: 'product_name' },
     { title: 'Số lượng', dataIndex: 'so_luong', align: 'right', render: v => Number(v).toLocaleString() },
@@ -221,52 +310,71 @@ export default function Staff() {
   ]
 
   return (
-    <div style={{ padding: 24 }}>
-      <Card
-        title={<Title level={5} style={{ margin: 0 }}>👥 Quản lý Nhân viên</Title>}
-        extra={
-          <Space>
-            {/* Hiển thị tổng số đang bật thông báo */}
-            {notifyCount > 0 && (
-              <Tag color="orange" icon={<BellFilled />} style={{ fontSize: 12 }}>
-                {notifyCount} NV đang được theo dõi lịch
-              </Tag>
-            )}
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => openModal()}>
-              Thêm nhân viên
-            </Button>
-          </Space>
-        }
-        style={{ borderRadius: 12 }}
-      >
-        {/* Hướng dẫn nhanh */}
-        <div style={{
-          background: 'linear-gradient(135deg, #fff7e6, #fff3cd)',
-          border: '1px solid #ffd591', borderRadius: 10,
-          padding: '10px 14px', marginBottom: 16,
-          display: 'flex', alignItems: 'center', gap: 10, fontSize: 13
-        }}>
-          <span style={{ fontSize: 20 }}>💡</span>
-          <div>
-            <b>Cách dùng tính năng nhắc lịch:</b> Bật 🔔 cho nhân viên cần theo dõi.
-            Chuông trên thanh menu sẽ hiện cảnh báo khi họ có lịch hẹn trong vòng <b>30 phút</b> tới,
-            giúp chủ/lễ tân kịp thời liên hệ khách.
-          </div>
-        </div>
+    <div style={{ padding: isMobile ? '12px 10px' : 24 }}>
 
-        <Table
-          dataSource={staff} columns={columns} rowKey="id" size="middle"
-          pagination={false}
-          rowClassName={r => !r.is_active ? 'ant-table-row-disabled' : ''}
-        />
-      </Card>
+      {/* Header */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+        flexWrap: 'wrap',
+        gap: 8,
+      }}>
+        <Title level={5} style={{ margin: 0 }}>👥 Quản lý Nhân viên</Title>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {notifyCount > 0 && !isMobile && (
+            <Tag color="orange" icon={<BellFilled />} style={{ fontSize: 12 }}>
+              {notifyCount} NV đang theo dõi lịch
+            </Tag>
+          )}
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => openModal()}>
+            Thêm nhân viên
+          </Button>
+        </div>
+      </div>
+
+      {/* Tip box */}
+      <div style={{
+        background: 'linear-gradient(135deg, #fff7e6, #fff3cd)',
+        border: '1px solid #ffd591', borderRadius: 10,
+        padding: isMobile ? '8px 12px' : '10px 14px',
+        marginBottom: 12,
+        display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: isMobile ? 12 : 13
+      }}>
+        <span style={{ fontSize: 18, flexShrink: 0 }}>💡</span>
+        <div>
+          <b>Nhắc lịch:</b> Bật 🔔 để nhận cảnh báo khi nhân viên có lịch trong <b>30 phút</b> tới.
+        </div>
+      </div>
+
+      {/* Nội dung: Card list trên mobile, Table trên desktop */}
+      {isMobile ? (
+        <div>
+          {staff.length === 0
+            ? <div style={{ textAlign: 'center', color: '#999', padding: 40 }}>Chưa có nhân viên nào</div>
+            : staff.map(r => <StaffCard key={r.id} r={r} />)
+          }
+        </div>
+      ) : (
+        <Card style={{ borderRadius: 12 }}>
+          <Table
+            dataSource={staff} columns={columns} rowKey="id" size="middle"
+            pagination={false}
+            rowClassName={r => !r.is_active ? 'ant-table-row-disabled' : ''}
+            scroll={{ x: 800 }}
+          />
+        </Card>
+      )}
 
       {/* Modal thêm/sửa nhân viên */}
       <Modal
         title={editing ? `✏️ Sửa: ${editing.name}` : '➕ Thêm nhân viên mới'}
         open={modal} onCancel={() => setModal(false)}
         onOk={() => form.submit()} confirmLoading={loading}
-        okText="Lưu" cancelText="Hủy" width={480}
+        okText="Lưu" cancelText="Hủy"
+        width={isMobile ? '95vw' : 480}
+        style={isMobile ? { top: 20 } : {}}
       >
         <Form form={form} layout="vertical" onFinish={save}>
           <Form.Item name="name" label="Họ tên" rules={[{ required: true, message: 'Nhập họ tên' }]}>
@@ -295,7 +403,7 @@ export default function Staff() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="commission_rate" label="% Hoa hồng" extra="VD: 10 = hưởng 10% trên mỗi đơn">
+              <Form.Item name="commission_rate" label="% Hoa hồng" extra="VD: 10 = hưởng 10%">
                 <InputNumber min={0} max={100} step={1} style={{ width: '100%' }} suffix="%" />
               </Form.Item>
             </Col>
@@ -311,7 +419,7 @@ export default function Staff() {
         title={`🏆 Hoa hồng: ${commDrawer?.name}`}
         open={!!commDrawer}
         onClose={() => { setCommDrawer(null); setCommData(null) }}
-        width={520}
+        width={isMobile ? '100vw' : 520}
       >
         <RangePicker
           value={dateRange}
@@ -324,23 +432,23 @@ export default function Staff() {
         />
         {commData && (
           <>
-            <Row gutter={16} style={{ marginBottom: 20 }}>
+            <Row gutter={12} style={{ marginBottom: 20 }}>
               <Col span={12}>
-                <Card style={{ borderRadius: 10, background: 'linear-gradient(135deg, #667eea20, #764ba220)' }}>
+                <Card style={{ borderRadius: 10, background: 'linear-gradient(135deg, #667eea20, #764ba220)' }} bodyStyle={{ padding: 14 }}>
                   <Statistic
-                    title="Tổng doanh thu phụ trách"
+                    title="Tổng doanh thu"
                     value={fmtMoney(commData.tong_doanh_thu)}
-                    valueStyle={{ color: '#1677ff', fontSize: 18 }}
+                    valueStyle={{ color: '#1677ff', fontSize: isMobile ? 14 : 18 }}
                     prefix={<DollarOutlined />}
                   />
                 </Card>
               </Col>
               <Col span={12}>
-                <Card style={{ borderRadius: 10, background: 'linear-gradient(135deg, #52c41a20, #73d13d20)' }}>
+                <Card style={{ borderRadius: 10, background: 'linear-gradient(135deg, #52c41a20, #73d13d20)' }} bodyStyle={{ padding: 14 }}>
                   <Statistic
-                    title={`Hoa hồng được hưởng (${commData.commission_rate}%)`}
+                    title={`Hoa hồng (${commData.commission_rate}%)`}
                     value={fmtMoney(commData.hoa_hong_duoc_huong)}
-                    valueStyle={{ color: '#52c41a', fontSize: 18 }}
+                    valueStyle={{ color: '#52c41a', fontSize: isMobile ? 14 : 18 }}
                     prefix={<TrophyOutlined />}
                   />
                 </Card>
@@ -354,6 +462,7 @@ export default function Staff() {
                   columns={commColumns}
                   rowKey="product_name"
                   size="small" pagination={false}
+                  scroll={{ x: 300 }}
                   summary={data => (
                     <Table.Summary.Row>
                       <Table.Summary.Cell><b>Tổng cộng</b></Table.Summary.Cell>
