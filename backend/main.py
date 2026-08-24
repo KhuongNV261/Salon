@@ -589,6 +589,166 @@ def public_get_shop(slug):
     finally:
         db.close()
 
+
+# ===== PUBLIC BOOKING APIs (không cần đăng nhập) =====
+
+@app.get("/api/public/<slug>/settings")
+def public_get_settings(slug):
+    """Giờ mở cửa, khoảng cách slot — dùng cho trang đặt lịch công khai"""
+    db = get_db()
+    try:
+        t = db.query(Tenant).filter(Tenant.slug == slug, Tenant.status == 'active').first()
+        if not t: return err("Không tìm thấy tiệm", 404)
+        return ok({
+            "open_time": t.open_time or "08:00",
+            "close_time": t.close_time or "20:00",
+            "slot_interval": t.slot_interval or 30,
+        })
+    finally:
+        db.close()
+
+@app.get("/api/public/<slug>/services")
+def public_get_services(slug):
+    """Danh sách dịch vụ — dùng cho trang đặt lịch công khai"""
+    db = get_db()
+    try:
+        t = db.query(Tenant).filter(Tenant.slug == slug, Tenant.status == 'active').first()
+        if not t: return err("Không tìm thấy tiệm", 404)
+        svcs = db.query(Product).filter(
+            Product.tenant_id == t.id,
+            Product.is_service == True,
+            Product.is_active == True
+        ).order_by(Product.name).all()
+        return ok([{
+            "id": str(s.id), "name": s.name,
+            "price": float(s.price or 0), "description": s.description or ""
+        } for s in svcs])
+    finally:
+        db.close()
+
+@app.get("/api/public/<slug>/stylists")
+def public_get_stylists(slug):
+    """Danh sách thợ — dùng cho trang đặt lịch công khai"""
+    db = get_db()
+    try:
+        t = db.query(Tenant).filter(Tenant.slug == slug, Tenant.status == 'active').first()
+        if not t: return err("Không tìm thấy tiệm", 404)
+        stylists = db.query(User).filter(
+            User.tenant_id == t.id,
+            User.role.in_(["staff", "owner"]),
+            User.is_active == True
+        ).all()
+        return ok([{"id": str(s.id), "name": s.name, "role": s.role} for s in stylists])
+    finally:
+        db.close()
+
+@app.get("/api/public/<slug>/availability")
+def public_check_availability(slug):
+    """Slot bận theo ngày — dùng cho trang đặt lịch công khai"""
+    db = get_db()
+    try:
+        t = db.query(Tenant).filter(Tenant.slug == slug, Tenant.status == 'active').first()
+        if not t: return err("Không tìm thấy tiệm", 404)
+        date_str = request.args.get("date")
+        stylist_id = request.args.get("stylist_id")
+        from datetime import timedelta
+        q = db.query(Appointment).filter(
+            Appointment.tenant_id == t.id,
+            func.date(Appointment.appointment_time) == to_date(date_str),
+            Appointment.status.notin_(["cancelled"])
+        )
+        if stylist_id:
+            q = q.filter(Appointment.stylist_id == stylist_id)
+        apts = q.all()
+        busy = {}
+        for a in apts:
+            start = a.appointment_time
+            dur = a.duration_minutes or 60
+            cur = start
+            while cur < start + timedelta(minutes=dur):
+                slot = cur.strftime("%H:%M")
+                if slot not in busy:
+                    busy[slot] = []
+                busy[slot].append(str(a.stylist_id) if a.stylist_id else "__any__")
+                cur += timedelta(minutes=30)
+        return ok({"busy": busy})
+    finally:
+        db.close()
+
+@app.post("/api/public/<slug>/appointments")
+def public_create_appointment(slug):
+    """Khách đặt lịch không cần đăng nhập"""
+    db = get_db()
+    try:
+        t = db.query(Tenant).filter(Tenant.slug == slug, Tenant.status == 'active').first()
+        if not t: return err("Không tìm thấy tiệm", 404)
+        d = request.json
+        apt_time_str = d.get("appointment_time")
+        if not apt_time_str: return err("Thiếu thời gian đặt lịch", 400)
+        apt_time = datetime.fromisoformat(apt_time_str)
+        duration = int(d.get("duration_minutes", 60))
+        stylist_id = d.get("stylist_id")
+        stylist_name = d.get("stylist_name")
+
+        # Tự động phân công thợ nếu không chỉ định
+        if not stylist_id:
+            from datetime import timedelta as td
+            apt_end = apt_time + td(minutes=duration)
+            all_stylists = db.query(User).filter(
+                User.tenant_id == t.id,
+                User.role == "staff",
+                User.is_active == True
+            ).all()
+            free_stylists = []
+            for stylist in all_stylists:
+                conflict = db.query(Appointment).filter(
+                    Appointment.stylist_id == stylist.id,
+                    Appointment.status.notin_(["cancelled", "done"]),
+                    Appointment.appointment_time < apt_end,
+                ).first()
+                if not conflict:
+                    free_stylists.append(stylist)
+            if free_stylists:
+                import random
+                chosen = random.choice(free_stylists)
+                stylist_id = str(chosen.id)
+                stylist_name = chosen.name
+            elif all_stylists:
+                import random
+                chosen = random.choice(all_stylists)
+                stylist_id = str(chosen.id)
+                stylist_name = chosen.name + " (có thể bận)"
+
+        service_name = d.get("service_name", "")
+        if d.get("service_id") and not service_name:
+            svc = db.query(Product).filter(Product.id == d["service_id"]).first()
+            if svc: service_name = svc.name
+
+        apt = Appointment(
+            tenant_id=t.id,
+            customer_name=d.get("customer_name"),
+            customer_phone=d.get("customer_phone"),
+            stylist_id=stylist_id,
+            stylist_name=stylist_name,
+            service_name=service_name,
+            service_id=d.get("service_id"),
+            appointment_time=apt_time,
+            duration_minutes=duration,
+            status="pending",
+            note=d.get("note"),
+            created_by=None  # khách lẻ không có user_id
+        )
+        db.add(apt)
+        db.commit()
+        return ok({
+            "id": str(apt.id),
+            "stylist_name": apt.stylist_name,
+            "appointment_time": apt.appointment_time.isoformat(),
+            "message": f"Đặt lịch thành công! Thợ: {apt.stylist_name or 'Chưa xác định'}"
+        })
+    finally:
+        db.close()
+
 # ===== SHOP SETTINGS =====
 @app.get("/api/settings")
 @jwt_required()

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Input, message } from 'antd'
 import { Link, useParams } from 'react-router-dom'
 import api from '../api'
@@ -74,13 +74,13 @@ export default function PublicBooking({ shopInfo }) {
   const loadData = async () => {
     try {
       const [s, st, svc] = await Promise.all([
-        api.get('/api/settings').catch(() => ({ data: {} })),
-        api.get('/api/appointments/stylists').catch(() => ({ data: [] })),
-        api.get('/api/products').catch(() => ({ data: [] })),
+        api.get(`/api/public/${slug}/settings`).catch(() => ({ data: {} })),
+        api.get(`/api/public/${slug}/stylists`).catch(() => ({ data: [] })),
+        api.get(`/api/public/${slug}/services`).catch(() => ({ data: [] })),
       ])
       setSettings({ open_time: '08:00', close_time: '20:00', slot_interval: 30, ...s.data })
       setStylists(st.data || [])
-      setServices((svc.data || []).filter(p => p.is_service))
+      setServices(svc.data || [])
     } catch {}
   }
 
@@ -88,7 +88,7 @@ export default function PublicBooking({ shopInfo }) {
     try {
       const params = { date: selectedDate }
       if (selectedStylist) params.stylist_id = selectedStylist
-      const r = await api.get('/api/appointments/availability', { params })
+      const r = await api.get(`/api/public/${slug}/availability`, { params })
       setBusySlots(r.data.busy || {})
     } catch { setBusySlots({}) }
   }
@@ -100,14 +100,14 @@ export default function PublicBooking({ shopInfo }) {
     try {
       const stylist = stylists.find(s => s.id === selectedStylist)
       const svc = services.find(s => s.id === selectedService)
-      const res = await api.post('/api/appointments', {
+      const res = await api.post(`/api/public/${slug}/appointments`, {
         customer_name: customerName, customer_phone: customerPhone,
         stylist_id: selectedStylist || null, stylist_name: stylist?.name || null,
         service_id: selectedService || null, service_name: svc?.name || null,
         appointment_time: `${selectedDate}T${selectedSlot}:00`,
         duration_minutes: settings.slot_interval, note: note || null,
       })
-      setBookResult({ stylist_name: res.data.stylist_name || 'Se phan cong sau', service_name: svc?.name || '', date: selectedDate, time: selectedSlot, customer_name: customerName })
+      setBookResult({ stylist_name: res.data.stylist_name || 'Sẽ phân công sau', service_name: svc?.name || '', date: selectedDate, time: selectedSlot, customer_name: customerName })
       setStep(4)
     } catch (e) { message.error(e.response?.data?.error || 'Dat lich that bai!') }
     finally { setSubmitting(false) }
