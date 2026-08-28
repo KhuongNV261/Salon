@@ -3,22 +3,44 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  /* Brand colors — Premium Salon */
   --primary: #667eea;
   --primary-dark: #5a6fd8;
+  --primary-light: #e8edff;
   --accent: #764ba2;
-  --success: #52c41a;
-  --danger: #ff4d4f;
-  --warning: #fa8c16;
+  --accent-light: #f0e8ff;
+
+  /* Semantic colors */
+  --success: #10b981;
+  --success-light: #d1fae5;
+  --danger: #ef4444;
+  --danger-light: #fee2e2;
+  --warning: #f59e0b;
+  --warning-light: #fef3c7;
+  --info: #3b82f6;
+  --info-light: #dbeafe;
+
+  /* Text */
   --text: #1a1a2e;
   --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+
+  /* Layout */
   --bg: #f5f6fa;
   --card-bg: #ffffff;
   --header-h: 58px;
   --tab-h: 62px;
   --border: #e8eaed;
+  --border-light: #f3f4f6;
+
+  /* Shape */
   --radius: 14px;
   --radius-sm: 10px;
-  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  --radius-lg: 20px;
+
+  /* Shadows */
+  --shadow: 0 2px 12px rgba(0,0,0,0.07);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.09);
   --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
 }
 
@@ -169,10 +191,10 @@ html, body, #root {
 }
 
 .tab-label {
-  font-size: 9px;
+  font-size: 11px; /* min 11px for accessibility — was 9px */
   font-weight: 600;
   white-space: nowrap;
-  letter-spacing: 0.2px;
+  letter-spacing: 0.1px;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
@@ -460,7 +482,7 @@ input, select, textarea {
    RESPONSIVE ADJUSTMENTS
    ============================== */
 @media (max-width: 360px) {
-  .tab-label { font-size: 8px; }
+  .tab-label { font-size: 10px; } /* min 10px even on smallest screens */
   .stat-value { font-size: 15px !important; }
   .page-title { font-size: 14px; }
 }

@@ -501,5 +501,5 @@ export default function App() {
 function RootRedirect() {
   const { user, tenant } = useStore()
   if (user && tenant?.slug) return <Navigate to={`/${tenant.slug}/`} replace />
-  return <Navigate to="/tiem-hoa-lan/booking" replace />
+  return <LandingPage />
 }
