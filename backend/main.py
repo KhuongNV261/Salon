@@ -394,6 +394,33 @@ def login():
     finally:
         db.close()
 
+@app.put("/api/auth/change-password")
+@jwt_required()
+def change_password():
+    user_id, tenant_id, role = current_user_info()
+    d = request.json
+    old_password = d.get("old_password", "")
+    new_password = d.get("new_password", "")
+    if not old_password or not new_password:
+        return err("Thiếu mật khẩu cũ hoặc mật khẩu mới", 400)
+    if len(new_password) < 6:
+        return err("Mật khẩu mới phải ít nhất 6 ký tự", 400)
+    db = get_db()
+    try:
+        u = db.query(User).filter(User.id == user_id).first()
+        if not u:
+            return err("Không tìm thấy người dùng", 404)
+        if not check_password_hash(u.password_hash, old_password):
+            return err("Mật khẩu cũ không đúng", 401)
+        u.password_hash = generate_password_hash(new_password)
+        db.commit()
+        return ok({"message": "Đổi mật khẩu thành công"})
+    except Exception as e:
+        db.rollback()
+        return err(str(e), 500)
+    finally:
+        db.close()
+
 SUPER_ADMIN_PASSWORD = os.environ.get("SUPER_ADMIN_PASSWORD", "")
 
 # ===== SUPER ADMIN =====
@@ -512,7 +539,17 @@ def super_update_tenant(tenant_id):
         owner = db.query(User).filter(User.tenant_id == tenant_id, User.role == "owner").first()
         if owner:
             if "owner_name" in d: owner.name = d["owner_name"]
-            if "owner_phone" in d: owner.phone = d["owner_phone"]
+            if "owner_phone" in d and d["owner_phone"] != owner.phone:
+                # Kiểm tra số điện thoại không trùng với user khác
+                existing = db.query(User).filter(
+                    User.phone == d["owner_phone"],
+                    User.id != owner.id
+                ).first()
+                if existing:
+                    return err("Số điện thoại này đã được dùng bởi tài khoản khác", 400)
+                owner.phone = d["owner_phone"]
+            elif "owner_phone" in d:
+                owner.phone = d["owner_phone"]
             if d.get("owner_password"):
                 owner.password_hash = generate_password_hash(d["owner_password"])
         

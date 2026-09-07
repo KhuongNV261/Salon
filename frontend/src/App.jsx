@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { Routes, Route, Navigate, Link, useNavigate, useLocation, useParams } from 'react-router-dom'
-import { Spin, Result, Badge, Popover, List, Button, Tag, Drawer } from 'antd'
+import { Spin, Popover, List, Button, Tag } from 'antd'
 import {
   ShoppingCartOutlined, BarChartOutlined, LogoutOutlined,
   AppstoreOutlined, TeamOutlined, CalendarOutlined, SettingOutlined,
   UserOutlined, InboxOutlined, DashboardOutlined, WalletOutlined,
-  BellOutlined, BellFilled, PhoneOutlined, CloseOutlined, MenuOutlined
+  BellOutlined, BellFilled, EllipsisOutlined
 } from '@ant-design/icons'
 import Login from './pages/Login'
 import POS from './pages/POS'
@@ -29,38 +29,64 @@ import 'antd/dist/reset.css'
 import './themes/themes.css'
 import './index.css'
 
-// Tab bar thay đổi theo role và tính năng được bật
-const getNavTabs = (role, features = {}) => {
-  let tabs = []
-  if (role === 'owner' || role === 'manager') {
-    tabs = [
-      { key: 'dashboard', icon: <DashboardOutlined />,   label: 'Tổng quan', feature: 'dashboard' },
-      { key: '',          icon: <ShoppingCartOutlined />, label: 'Bán hàng', feature: 'pos' },
-      { key: 'booking',   icon: <CalendarOutlined />,    label: 'Lịch hẹn',  feature: 'booking' },
-      { key: 'customers', icon: <UserOutlined />,        label: 'Khách',     feature: 'customers' },
-      { key: 'expenses',  icon: <WalletOutlined />,      label: 'Chi phí',   feature: 'expenses' },
-    ]
-  } else {
-    tabs = [
-      { key: 'booking',   icon: <CalendarOutlined />,    label: 'Lịch hẹn',  feature: 'booking' },
-    ]
-  }
-  return tabs.filter(t => features[t.feature] !== false)
+// ─── Map route key → tên trang hiển thị trên header ───────
+const PAGE_TITLES = {
+  '':          '🛒 Bán hàng',
+  'dashboard': '📊 Tổng quan',
+  'booking':   '📅 Lịch hẹn',
+  'customers': '👤 Khách hàng',
+  'expenses':  '💼 Chi phí / Chốt ca',
+  'products':  '📦 Dịch vụ & Sản phẩm',
+  'staff':     '👥 Nhân viên',
+  'reports':   '📈 Báo cáo',
+  'packages':  '🎁 Gói dịch vụ',
+  'inventory': '🏭 Kho hàng',
+  'settings':  '⚙️ Cài đặt',
 }
 
-// ─── Guard: yêu cầu đăng nhập ───────────────────────
+// ─── Tab bar cốt lõi (4 tab) ───────────────────────────────
+const getNavTabs = (role, features = {}) => {
+  if (role !== 'owner' && role !== 'manager') {
+    return [
+      { key: 'booking', icon: <CalendarOutlined />, label: 'Lịch hẹn', feature: 'booking' },
+    ].filter(t => features[t.feature] !== false)
+  }
+  return [
+    { key: '',          icon: <ShoppingCartOutlined />, label: 'Bán hàng',  feature: 'pos' },
+    { key: 'booking',   icon: <CalendarOutlined />,    label: 'Lịch hẹn',  feature: 'booking' },
+    { key: 'customers', icon: <UserOutlined />,        label: 'Khách',     feature: 'customers' },
+    { key: 'reports',   icon: <BarChartOutlined />,    label: 'Báo cáo',   feature: 'reports' },
+  ].filter(t => features[t.feature] !== false)
+}
+
+// ─── Các trang "Thêm" cho owner/manager ────────────────────
+const getMoreItems = (features = {}) => [
+  { key: 'dashboard', icon: <DashboardOutlined />, label: 'Tổng quan',           feature: 'dashboard' },
+  { key: 'expenses',  icon: <WalletOutlined />,    label: 'Chi phí / Chốt ca',  feature: 'expenses' },
+  { key: 'products',  icon: <AppstoreOutlined />,  label: 'Dịch vụ & Sản phẩm', feature: 'products' },
+  { key: 'packages',  icon: <AppstoreOutlined />,  label: 'Gói dịch vụ / Thẻ',  feature: 'packages' },
+  { key: 'inventory', icon: <InboxOutlined />,     label: 'Kho hàng',           feature: 'inventory' },
+  { key: 'staff',     icon: <TeamOutlined />,      label: 'Nhân viên',          feature: 'staff' },
+  { key: 'settings',  icon: <SettingOutlined />,   label: 'Cài đặt',           feature: 'settings' },
+].filter(t => features[t.feature] !== false)
+
+// ─── Guard: yêu cầu đăng nhập – nhớ URL gốc ───────────────
 function PrivateRoute({ children }) {
   const { user } = useStore()
   const { slug } = useParams()
-  if (!user) return <Navigate to={`/${slug}/login`} replace />
+  const location = useLocation()
+  if (!user) {
+    // Lưu URL hiện tại vào state để Login biết redirect về đâu sau khi đăng nhập
+    return <Navigate to={`/${slug}/login`} state={{ from: location.pathname + location.search }} replace />
+  }
   return children
 }
 
-// ─── Panel thông báo lịch hẹn sắp tới ──────────────
+// ─── Panel thông báo lịch hẹn sắp tới ─────────────────────
 function NotificationBell({ slug }) {
   const { user } = useStore()
-  const [alerts, setAlerts] = useState([])       // lịch hẹn sắp tới
-  const [dismissed, setDismissed] = useState(new Set()) // đã bấm tắt
+  const [alerts, setAlerts] = useState([])
+  const [dismissed, setDismissed] = useState(new Set())
   const [open, setOpen] = useState(false)
   const [flashing, setFlashing] = useState(false)
   const intervalRef = useRef(null)
@@ -70,10 +96,8 @@ function NotificationBell({ slug }) {
     try {
       const res = await api.get('/api/notifications/upcoming', { params: { minutes: 30 } })
       const items = res.data || []
-      // Lọc bỏ những cái đã dismiss
       const fresh = items.filter(a => !dismissed.has(a.id))
       setAlerts(fresh)
-      // Flash chuông nếu có thông báo mới
       if (fresh.length > 0) {
         setFlashing(true)
         setTimeout(() => setFlashing(false), 3000)
@@ -83,7 +107,7 @@ function NotificationBell({ slug }) {
 
   useEffect(() => {
     fetchUpcoming()
-    intervalRef.current = setInterval(fetchUpcoming, 5 * 60 * 1000) // 5 phút
+    intervalRef.current = setInterval(fetchUpcoming, 5 * 60 * 1000)
     return () => clearInterval(intervalRef.current)
   }, [fetchUpcoming])
 
@@ -111,7 +135,6 @@ function NotificationBell({ slug }) {
   const getUrgencyLabel = (min) => {
     if (min <= 0) return 'Đã tới giờ!'
     if (min <= 10) return `${min} phút nữa ⚠️`
-    if (min <= 20) return `${min} phút nữa`
     return `${min} phút nữa`
   }
 
@@ -132,13 +155,11 @@ function NotificationBell({ slug }) {
               Đọc tất cả
             </Button>
           </div>
-
           <List
             dataSource={alerts}
             renderItem={apt => (
               <List.Item style={{ padding: '8px 0', borderBottom: '1px solid #fafafa' }}>
                 <div style={{ width: '100%' }}>
-                  {/* Urgency bar */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <Tag color={getUrgencyColor(apt.minutes_left)} style={{ margin: 0, fontWeight: 700, fontSize: 11 }}>
                       {getUrgencyLabel(apt.minutes_left)}
@@ -147,20 +168,14 @@ function NotificationBell({ slug }) {
                       {apt.appointment_time_fmt}
                     </span>
                   </div>
-
-                  {/* Stylist + service */}
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#1e1b4b' }}>
                     💇 {apt.stylist_name}
                     {apt.service_name && <span style={{ color: '#888', fontWeight: 400 }}> · {apt.service_name}</span>}
                   </div>
-
-                  {/* Customer info */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
                     <div style={{ fontSize: 12, color: '#555' }}>
                       👤 {apt.customer_name}
-                      {apt.customer_phone && (
-                        <span style={{ color: '#888', marginLeft: 6 }}>· {apt.customer_phone}</span>
-                      )}
+                      {apt.customer_phone && <span style={{ color: '#888', marginLeft: 6 }}>· {apt.customer_phone}</span>}
                     </div>
                     <div style={{ display: 'flex', gap: 4 }}>
                       {apt.customer_phone && (
@@ -181,8 +196,6 @@ function NotificationBell({ slug }) {
               </List.Item>
             )}
           />
-
-          {/* Nút liên hệ nhanh (chỉ hiện khi có số điện thoại) */}
           <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #f0f0f0', fontSize: 11, color: '#aaa', textAlign: 'center' }}>
             Polling mỗi 5 phút · <Button type="link" size="small" style={{ fontSize: 11, padding: 0 }} onClick={fetchUpcoming}>Làm mới ngay</Button>
           </div>
@@ -238,13 +251,13 @@ function NotificationBell({ slug }) {
   )
 }
 
-// ─── Shell layout mobile ─────────────────────────────
+// ─── Shell layout mobile ────────────────────────────────────
 function MobileLayout({ children, shopInfo }) {
   const { user, tenant, logout } = useStore()
   const navigate = useNavigate()
   const location = useLocation()
   const { slug } = useParams()
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
   const isOwnerOrManager = user?.role === 'owner' || user?.role === 'manager'
 
   const handleLogout = () => {
@@ -254,86 +267,44 @@ function MobileLayout({ children, shopInfo }) {
 
   const currentPage = location.pathname.replace(`/${slug}`, '').replace(/^\//, '')
   const NAV_TABS = getNavTabs(user?.role, shopInfo?.features)
+  const MORE_ITEMS = isOwnerOrManager ? getMoreItems(shopInfo?.features) : []
+  const pageTitle = PAGE_TITLES[currentPage] ?? ''
+  const moreActive = MORE_ITEMS.some(m => m.key === currentPage)
 
   return (
     <div className="mobile-app">
       <header className="mobile-header">
         <div className="mobile-header-left">
-          {isOwnerOrManager ? (
-            <MenuOutlined style={{ fontSize: 20, color: '#fff', marginRight: 10, cursor: 'pointer' }} onClick={() => setDrawerOpen(true)} />
-          ) : (
-            <span className="header-logo">🏪</span>
-          )}
           <div>
-            <div className="header-shop-name">{tenant?.name || 'LocalPOS'}</div>
-            <div className="header-user-name">{user?.name} · <span style={{ textTransform: 'capitalize', opacity: 0.7 }}>{user?.role}</span></div>
+            <div className="header-shop-name" style={{ fontSize: 12, opacity: 0.7 }}>
+              🏪 {tenant?.name || 'LocalPOS'}
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
+              {pageTitle}
+            </div>
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {/* 🔔 Chuông thông báo lịch hẹn */}
+          {/* 🔔 Chuông thông báo */}
           <NotificationBell slug={slug} />
 
-          {/* Cài đặt (chỉ owner/manager) */}
-          {(user?.role === 'owner' || user?.role === 'manager') && shopInfo?.features?.settings !== false && (
-            <Link to={`/${slug}/settings`} style={{
-              background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)',
-              borderRadius: 8, color: '#fff', width: 36, height: 36,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 16, textDecoration: 'none'
-            }} title="Cài đặt">
-              <SettingOutlined />
-            </Link>
-          )}
+          {/* Tên + role người dùng */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginRight: 2 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', lineHeight: 1.1 }}>
+              {user?.name}
+            </div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', textTransform: 'capitalize' }}>
+              {user?.role}
+            </div>
+          </div>
 
+          {/* Đăng xuất */}
           <button className="header-logout-btn" onClick={handleLogout} title="Đăng xuất">
             <LogoutOutlined />
           </button>
         </div>
       </header>
-
-      {/* Side Menu cho Chủ */}
-      <Drawer
-        title="Danh mục quản lý"
-        placement="left"
-        onClose={() => setDrawerOpen(false)}
-        open={drawerOpen}
-        styles={{ body: { padding: 0 } }}
-        width={260}
-      >
-        <List
-          dataSource={[
-            { key: 'dashboard', icon: <DashboardOutlined />, label: 'Tổng quan' },
-            { key: '', icon: <ShoppingCartOutlined />, label: 'Bán hàng' },
-            { key: 'booking', icon: <CalendarOutlined />, label: 'Lịch hẹn' },
-            { key: 'products', icon: <AppstoreOutlined />, label: 'Dịch vụ / Sản phẩm' },
-            { key: 'customers', icon: <UserOutlined />, label: 'Khách hàng' },
-            { key: 'expenses', icon: <WalletOutlined />, label: 'Chi phí / Chốt ca' },
-            { key: 'packages', icon: <AppstoreOutlined />, label: 'Gói Dịch Vụ / Thẻ' },
-            { key: 'inventory', icon: <InboxOutlined />, label: 'Kho hàng' },
-            { key: 'reports', icon: <BarChartOutlined />, label: 'Báo cáo' },
-            { key: 'staff', icon: <TeamOutlined />, label: 'Nhân viên' },
-            { key: 'settings', icon: <SettingOutlined />, label: 'Cài đặt' },
-          ].filter(item => shopInfo?.features?.[item.key === '' ? 'pos' : item.key] !== false)}
-          renderItem={item => (
-            <List.Item style={{ padding: 0 }}>
-              <Link
-                to={`/${slug}/${item.key}`}
-                onClick={() => setDrawerOpen(false)}
-                style={{
-                  display: 'flex', alignItems: 'center', width: '100%',
-                  padding: '16px 24px', color: '#333', fontSize: 16,
-                  textDecoration: 'none', background: currentPage === item.key || (!currentPage && item.key === '') ? '#f0f5ff' : 'transparent',
-                  fontWeight: currentPage === item.key || (!currentPage && item.key === '') ? 700 : 400
-                }}
-              >
-                <span style={{ marginRight: 14, fontSize: 18, color: '#667eea' }}>{item.icon}</span>
-                {item.label}
-              </Link>
-            </List.Item>
-          )}
-        />
-      </Drawer>
 
       <main className="mobile-content">{children}</main>
 
@@ -351,12 +322,59 @@ function MobileLayout({ children, shopInfo }) {
             </Link>
           )
         })}
+
+        {/* Tab "Thêm" – chỉ hiện cho owner/manager */}
+        {isOwnerOrManager && MORE_ITEMS.length > 0 && (
+          <Popover
+            open={moreOpen}
+            onOpenChange={setMoreOpen}
+            trigger="click"
+            placement="topRight"
+            arrow={false}
+            overlayInnerStyle={{ padding: 0, borderRadius: 14, overflow: 'hidden', minWidth: 210, boxShadow: '0 8px 32px rgba(0,0,0,0.15)' }}
+            content={
+              <div>
+                <div style={{ padding: '10px 16px 8px', borderBottom: '1px solid #f0f0f0', fontWeight: 700, fontSize: 12, color: '#667eea' }}>
+                  ☰ Danh mục khác
+                </div>
+                {MORE_ITEMS.map(item => {
+                  const isActive = currentPage === item.key
+                  return (
+                    <Link
+                      key={item.key}
+                      to={`/${slug}/${item.key}`}
+                      onClick={() => setMoreOpen(false)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '12px 16px',
+                        color: isActive ? '#667eea' : '#333',
+                        background: isActive ? '#f0f5ff' : '#fff',
+                        fontWeight: isActive ? 700 : 400,
+                        fontSize: 14, textDecoration: 'none',
+                        borderBottom: '1px solid #f8f8f8',
+                        transition: 'background 0.15s',
+                      }}
+                    >
+                      <span style={{ fontSize: 18, color: isActive ? '#667eea' : '#aaa', width: 22, textAlign: 'center' }}>{item.icon}</span>
+                      {item.label}
+                    </Link>
+                  )
+                })}
+              </div>
+            }
+          >
+            <div className={`tab-item ${moreActive ? 'tab-active' : ''}`} style={{ cursor: 'pointer', userSelect: 'none' }}>
+              <span className="tab-icon"><EllipsisOutlined /></span>
+              <span className="tab-label">Thêm</span>
+            </div>
+          </Popover>
+        )}
       </nav>
     </div>
   )
 }
 
-// ─── ShopLoader: resolve slug → shop info ────────────
+// ─── ShopLoader: resolve slug → shop info ──────────────────
 const VALID_THEMES = ['classic', 'nature', 'luxury', 'cute']
 
 function ShopLoader() {
@@ -364,7 +382,7 @@ function ShopLoader() {
   const [shopInfo, setShopInfo] = useState(null)
   const [notFound, setNotFound] = useState(false)
   const [loading, setLoading] = useState(true)
-  const { user, tenant, setAuth, logout } = useStore()
+  const { user } = useStore()
   const wrapperRef = React.useRef(null)
 
   useEffect(() => { loadShop() }, [slug])
@@ -385,7 +403,6 @@ function ShopLoader() {
     }
   }
 
-  // Apply theme mỗi khi shopInfo thay đổi (chủ tiệm đổi theme trong Settings)
   useEffect(() => {
     if (!shopInfo || !wrapperRef.current) return
     const theme = VALID_THEMES.includes(shopInfo.theme) ? shopInfo.theme : 'classic'
@@ -401,12 +418,21 @@ function ShopLoader() {
   )
 
   if (notFound) return (
-    <div style={{ height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <Result
-        status="404"
-        title="Không tìm thấy tiệm"
-        subTitle={`Đường dẫn "/${slug}" không tồn tại. Vui lòng kiểm tra lại URL.`}
-      />
+    <div style={{ height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', background: 'linear-gradient(135deg, #f5f6fa, #e8edff)' }}>
+      <div style={{ fontSize: 64, marginBottom: 8 }}>🚧</div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: '#1e1b4b', marginBottom: 8 }}>Không tìm thấy tiệm</div>
+      <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 28, textAlign: 'center', maxWidth: 280, lineHeight: 1.6 }}>
+        Đường dẫn <strong style={{ color: '#667eea' }}>/{slug}</strong> không tồn tại.<br />
+        Kiểm tra lại URL hoặc liên hệ chủ tiệm.
+      </div>
+      <Link to="/" style={{
+        background: 'linear-gradient(135deg,#667eea,#764ba2)',
+        color: '#fff', borderRadius: 12, padding: '12px 28px',
+        fontWeight: 700, fontSize: 15, textDecoration: 'none',
+        boxShadow: '0 6px 20px rgba(102,126,234,0.4)'
+      }}>
+        🏠 Về trang chủ
+      </Link>
     </div>
   )
 
@@ -414,78 +440,80 @@ function ShopLoader() {
   const isEnabled = (key) => features[key] !== false
   const isOwnerOrManager = user?.role === 'owner' || user?.role === 'manager'
 
+  const wrap = (page) => (
+    <PrivateRoute>
+      <MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}>
+        {page}
+      </MobileLayout>
+    </PrivateRoute>
+  )
+
   return (
     <div ref={wrapperRef} data-theme={VALID_THEMES.includes(shopInfo?.theme) ? shopInfo.theme : 'classic'} style={{ minHeight: '100dvh' }}>
       <Routes>
         <Route path="login" element={<Login shopInfo={shopInfo} />} />
-        {isEnabled('dashboard') && isOwnerOrManager && (
-          <Route path="dashboard" element={
-            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Dashboard /></MobileLayout></PrivateRoute>
-          } />
-        )}
+
+        {/* Bán hàng (POS) – chỉ owner/manager */}
         <Route path="" element={
           <PrivateRoute>
-            {isOwnerOrManager ? (
-              <MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><POS /></MobileLayout>
-            ) : (
-              <Navigate to={`/${slug}/booking`} replace />
-            )}
+            {isOwnerOrManager
+              ? <MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><POS /></MobileLayout>
+              : <Navigate to={`/${slug}/booking`} replace />
+            }
           </PrivateRoute>
         } />
+
+        {/* Lịch hẹn – cần đăng nhập */}
         {isEnabled('booking') && (
-          <Route path="booking" element={
-            user
-              ? <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Booking /></MobileLayout></PrivateRoute>
-              : <PublicBooking shopInfo={shopInfo} />
-          } />
+          <Route path="booking" element={wrap(<Booking />)} />
+        )}
+
+        {/* Đặt lịch công khai – KHÔNG cần đăng nhập */}
+        {isEnabled('booking') && (
+          <Route path="booking/public" element={<PublicBooking shopInfo={shopInfo} />} />
+        )}
+
+        {isEnabled('dashboard') && isOwnerOrManager && (
+          <Route path="dashboard" element={wrap(<Dashboard />)} />
         )}
         {isEnabled('customers') && isOwnerOrManager && (
-          <Route path="customers" element={
-            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Customers /></MobileLayout></PrivateRoute>
-          } />
+          <Route path="customers" element={wrap(<Customers />)} />
         )}
         {isEnabled('inventory') && isOwnerOrManager && (
-          <Route path="inventory" element={
-            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Inventory /></MobileLayout></PrivateRoute>
-          } />
+          <Route path="inventory" element={wrap(<Inventory />)} />
         )}
         {isOwnerOrManager && (
-          <Route path="products" element={
-            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Products /></MobileLayout></PrivateRoute>
-          } />
+          <Route path="products" element={wrap(<Products />)} />
         )}
         {isEnabled('staff') && isOwnerOrManager && (
-          <Route path="staff" element={
-            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Staff /></MobileLayout></PrivateRoute>
-          } />
+          <Route path="staff" element={wrap(<Staff />)} />
         )}
         {isEnabled('reports') && isOwnerOrManager && (
-          <Route path="reports" element={
-            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Reports /></MobileLayout></PrivateRoute>
-          } />
+          <Route path="reports" element={wrap(<Reports />)} />
         )}
         {isEnabled('expenses') && isOwnerOrManager && (
-          <Route path="expenses" element={
-            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Expenses /></MobileLayout></PrivateRoute>
-          } />
+          <Route path="expenses" element={wrap(<Expenses />)} />
         )}
         {isOwnerOrManager && (
-          <Route path="packages" element={
-            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Packages /></MobileLayout></PrivateRoute>
-          } />
+          <Route path="packages" element={wrap(<Packages />)} />
         )}
         {isEnabled('settings') && isOwnerOrManager && (
           <Route path="settings" element={
-            <PrivateRoute><MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><Settings setShopInfo={setShopInfo} /></MobileLayout></PrivateRoute>
+            <PrivateRoute>
+              <MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}>
+                <Settings setShopInfo={setShopInfo} />
+              </MobileLayout>
+            </PrivateRoute>
           } />
         )}
+
         <Route path="*" element={<Navigate to={`/${slug}/`} replace />} />
       </Routes>
     </div>
   )
 }
 
-// ─── Root ────────────────────────────────────────────
+// ─── Root ───────────────────────────────────────────────────
 export default function App() {
   return (
     <Routes>

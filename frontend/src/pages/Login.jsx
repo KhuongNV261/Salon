@@ -3,7 +3,7 @@ import { Input, message } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
 import api from '../api'
 import useStore from '../store'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 
 export default function Login({ shopInfo }) {
   const [phone, setPhone] = useState('')
@@ -11,6 +11,7 @@ export default function Login({ shopInfo }) {
   const [loading, setLoading] = useState(false)
   const setAuth = useStore(s => s.setAuth)
   const navigate = useNavigate()
+  const location = useLocation()
   const { slug } = useParams()
 
   const handleLogin = async () => {
@@ -29,7 +30,9 @@ export default function Login({ shopInfo }) {
         { name: res.data.tenant_name, id: shopInfo.tenant_id, slug: slug }
       )
       message.success(`Chào mừng ${res.data.user_name}!`)
-      navigate(`/${slug}/`)
+      // Redirect về trang gốc nếu có, không thì về trang chủ của slug
+      const from = location.state?.from || `/${slug}/`
+      navigate(from, { replace: true })
     } catch (err) {
       message.error(err.response?.data?.detail || err.response?.data?.error || 'Sai số điện thoại hoặc mật khẩu')
     } finally {

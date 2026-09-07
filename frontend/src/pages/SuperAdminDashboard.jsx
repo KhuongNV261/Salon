@@ -86,11 +86,19 @@ export default function SuperAdminDashboard() {
     setSubmitting(true)
     try {
       const payload = {
-        ...values,
+        name: values.name,
+        slug: values.slug,
+        owner_name: values.owner_name,
+        owner_phone: values.owner_phone,
+        status: values.status,
         trial_ends_at: values.trial_ends_at ? values.trial_ends_at.toISOString() : null,
       }
+      // Chỉ gửi password nếu user thực sự nhập (không để trống)
+      if (values.owner_password && values.owner_password.trim()) {
+        payload.owner_password = values.owner_password.trim()
+      }
       await superUpdateTenant(editingTenant.id, payload)
-      message.success('Cập nhật thành công')
+      message.success('Cập nhật thành công!')
       setEditModalOpen(false)
       fetchTenants()
     } catch (err) {
@@ -99,6 +107,7 @@ export default function SuperAdminDashboard() {
       setSubmitting(false)
     }
   }
+
 
   const handleExtend = async (values) => {
     setSubmitting(true)
@@ -217,8 +226,13 @@ export default function SuperAdminDashboard() {
               setEditingTenant(record)
               editForm.resetFields()
               editForm.setFieldsValue({
-                ...record,
+                name: record.name,
+                slug: record.slug,
+                owner_name: record.owner_name,
+                owner_phone: record.owner_phone,
+                owner_password: '', // luôn để trống — không pre-fill password
                 trial_ends_at: record.trial_ends_at ? dayjs(record.trial_ends_at) : null,
+                status: record.status,
               })
               setEditModalOpen(true)
             }}
