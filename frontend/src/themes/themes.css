@@ -1,0 +1,414 @@
+/* ============================================================
+   LOCALPOS - MULTI-THEME SYSTEM
+   4 themes: classic | nature | luxury | cute
+   Apply bằng: <div data-theme="luxury"> ... </div>
+   ============================================================ */
+
+/* ─── Google Fonts cho từng theme ─── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Nunito:wght@400;500;600;700;800;900&family=Poppins:wght@400;500;600;700;800&family=Cormorant+Garamond:wght@400;500;600;700&display=swap');
+
+/* ============================================================
+   THEME 1: CLASSIC (Tím/Navy - Premium Tech) - Mặc định
+   ============================================================ */
+[data-theme="classic"] {
+  --primary: #667eea;
+  --primary-dark: #5a6fd8;
+  --accent: #764ba2;
+  --primary-rgb: 102, 126, 234;
+  --accent-rgb: 118, 75, 162;
+  --success: #52c41a;
+  --danger: #ff4d4f;
+  --warning: #fa8c16;
+  --text: #1a1a2e;
+  --text-secondary: #6b7280;
+  --text-inverse: #ffffff;
+  --bg: #f5f6fa;
+  --card-bg: #ffffff;
+  --border: #e8eaed;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-pill: 99px;
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+  --font: 'Inter', -apple-system, sans-serif;
+
+  /* Header */
+  --header-bg: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  --header-shadow: 0 2px 16px rgba(0,0,0,0.2);
+  --header-text: #ffffff;
+  --header-subtext: rgba(255,255,255,0.5);
+  --header-btn-bg: rgba(255,255,255,0.1);
+  --header-btn-border: rgba(255,255,255,0.15);
+
+  /* Tab bar */
+  --tab-bg: rgba(255,255,255,0.97);
+  --tab-border: rgba(0,0,0,0.06);
+  --tab-inactive: #b0b7c3;
+  --tab-active: var(--primary);
+  --tab-indicator: linear-gradient(90deg, var(--primary), var(--accent));
+  --tab-radius: 0;
+
+  /* Card */
+  --card-border: rgba(0,0,0,0.03);
+  --stat-card-bg: #ffffff;
+  --stat-border-left: var(--primary);
+
+  /* Button */
+  --btn-bg: linear-gradient(135deg, var(--primary), var(--accent));
+  --btn-shadow: 0 4px 16px rgba(102,126,234,0.35);
+
+  /* Scrollbar */
+  --scrollbar-color: rgba(102,126,234,0.3);
+
+  /* Login page */
+  --login-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --login-card-bg: rgba(255,255,255,0.12);
+  --login-card-border: rgba(255,255,255,0.2);
+}
+
+/* ============================================================
+   THEME 2: NATURE (Xanh lá - Spa / Nail salon)
+   ============================================================ */
+[data-theme="nature"] {
+  --primary: #00b09b;
+  --primary-dark: #009688;
+  --accent: #38ef7d;
+  --primary-rgb: 0, 176, 155;
+  --accent-rgb: 56, 239, 125;
+  --success: #52c41a;
+  --danger: #ff6b6b;
+  --warning: #ffa94d;
+  --text: #1b3a34;
+  --text-secondary: #5f8b7a;
+  --text-inverse: #ffffff;
+  --bg: #f0faf7;
+  --card-bg: #ffffff;
+  --border: #c8ede6;
+  --radius: 20px;
+  --radius-sm: 14px;
+  --radius-pill: 99px;
+  --shadow: 0 2px 16px rgba(0,176,155,0.08);
+  --shadow-lg: 0 8px 32px rgba(0,176,155,0.15);
+  --font: 'Nunito', -apple-system, sans-serif;
+
+  /* Header */
+  --header-bg: linear-gradient(135deg, #0a6e62 0%, #00b09b 60%, #38ef7d 100%);
+  --header-shadow: 0 4px 20px rgba(0,176,155,0.25);
+  --header-text: #ffffff;
+  --header-subtext: rgba(255,255,255,0.65);
+  --header-btn-bg: rgba(255,255,255,0.15);
+  --header-btn-border: rgba(255,255,255,0.25);
+
+  /* Tab bar */
+  --tab-bg: #ffffff;
+  --tab-border: #c8ede6;
+  --tab-inactive: #93b8b0;
+  --tab-active: var(--primary);
+  --tab-indicator: linear-gradient(90deg, #00b09b, #38ef7d);
+  --tab-radius: 0;
+
+  /* Card */
+  --card-border: rgba(0,176,155,0.08);
+  --stat-card-bg: #f6fffe;
+  --stat-border-left: var(--primary);
+
+  /* Button */
+  --btn-bg: linear-gradient(135deg, #00b09b, #38ef7d);
+  --btn-shadow: 0 4px 16px rgba(0,176,155,0.35);
+
+  /* Scrollbar */
+  --scrollbar-color: rgba(0,176,155,0.35);
+
+  /* Login page */
+  --login-bg: linear-gradient(160deg, #0a6e62 0%, #00b09b 50%, #38ef7d 100%);
+  --login-card-bg: rgba(255,255,255,0.15);
+  --login-card-border: rgba(255,255,255,0.25);
+}
+
+/* Extra: Nature - card bo tròn hơn, kem nhạt */
+[data-theme="nature"] .m-card {
+  background: #fafffe;
+  border: 1px solid rgba(0,176,155,0.1);
+}
+[data-theme="nature"] .stat-card {
+  background: #f6fffe;
+  border-left: 3px solid var(--primary);
+}
+[data-theme="nature"] .mobile-header {
+  border-bottom: none;
+}
+
+/* ============================================================
+   THEME 3: LUXURY (Đen/Vàng gold - Salon cao cấp)
+   ============================================================ */
+[data-theme="luxury"] {
+  --primary: #d4a017;
+  --primary-dark: #b8860b;
+  --accent: #ffd700;
+  --primary-rgb: 212, 160, 23;
+  --accent-rgb: 255, 215, 0;
+  --success: #4caf50;
+  --danger: #ef5350;
+  --warning: #ff9800;
+  --text: #f0e6c8;
+  --text-secondary: #a09070;
+  --text-inverse: #0a0a0a;
+  --bg: #0f0f0f;
+  --card-bg: #1a1a1a;
+  --border: #2a2a2a;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-pill: 99px;
+  --shadow: 0 2px 16px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.6);
+  --font: 'Cormorant Garamond', Georgia, serif;
+
+  /* Header */
+  --header-bg: linear-gradient(135deg, #0a0a0a 0%, #1a1a0a 50%, #0a0a0a 100%);
+  --header-shadow: 0 1px 0 #d4a01733, 0 4px 20px rgba(0,0,0,0.5);
+  --header-text: #ffd700;
+  --header-subtext: rgba(212,160,23,0.5);
+  --header-btn-bg: rgba(212,160,23,0.1);
+  --header-btn-border: rgba(212,160,23,0.3);
+
+  /* Tab bar */
+  --tab-bg: #111111;
+  --tab-border: #2a2a2a;
+  --tab-inactive: #555544;
+  --tab-active: #d4a017;
+  --tab-indicator: linear-gradient(90deg, #d4a017, #ffd700);
+  --tab-radius: 0;
+
+  /* Card */
+  --card-border: #2a2a2a;
+  --stat-card-bg: #1a1a1a;
+  --stat-border-left: #d4a017;
+
+  /* Button */
+  --btn-bg: linear-gradient(135deg, #b8860b, #ffd700);
+  --btn-shadow: 0 4px 20px rgba(212,160,23,0.4);
+
+  /* Scrollbar */
+  --scrollbar-color: rgba(212,160,23,0.3);
+
+  /* Login page */
+  --login-bg: linear-gradient(160deg, #0a0a0a 0%, #1a1205 50%, #0a0a0a 100%);
+  --login-card-bg: rgba(212,160,23,0.08);
+  --login-card-border: rgba(212,160,23,0.25);
+}
+
+/* Extra: Luxury dark mode overrides */
+[data-theme="luxury"] html,
+[data-theme="luxury"] body,
+[data-theme="luxury"] #root {
+  background: #0f0f0f;
+  color: #f0e6c8;
+}
+[data-theme="luxury"] .mobile-app {
+  background: #0f0f0f;
+  box-shadow: 0 0 80px rgba(212,160,23,0.1);
+}
+[data-theme="luxury"] .m-card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  color: #f0e6c8;
+}
+[data-theme="luxury"] .stat-card {
+  background: #1a1a1a;
+  border-left: 3px solid #d4a017;
+}
+[data-theme="luxury"] .page-title { color: #d4a017; }
+[data-theme="luxury"] .bottom-tab-bar {
+  background: rgba(17,17,17,0.97);
+  border-top: 1px solid #2a2a2a;
+  box-shadow: 0 -2px 0 rgba(212,160,23,0.15), 0 -8px 20px rgba(0,0,0,0.4);
+}
+[data-theme="luxury"] .header-btn-bg {
+  background: rgba(212,160,23,0.12);
+}
+[data-theme="luxury"] .mobile-header {
+  border-bottom: 1px solid rgba(212,160,23,0.2);
+}
+/* Ant Design overrides for Luxury */
+[data-theme="luxury"] .ant-card {
+  background: #1a1a1a !important;
+  border-color: #2a2a2a !important;
+  color: #f0e6c8 !important;
+}
+[data-theme="luxury"] .ant-card-head {
+  border-bottom-color: #2a2a2a !important;
+  color: #d4a017 !important;
+}
+[data-theme="luxury"] .ant-table {
+  background: #1a1a1a !important;
+  color: #f0e6c8 !important;
+}
+[data-theme="luxury"] .ant-table-thead > tr > th {
+  background: #111 !important;
+  color: #d4a017 !important;
+  border-bottom-color: #2a2a2a !important;
+}
+[data-theme="luxury"] .ant-table-tbody > tr > td {
+  background: #1a1a1a !important;
+  color: #f0e6c8 !important;
+  border-bottom-color: #2a2a2a !important;
+}
+[data-theme="luxury"] .ant-table-tbody > tr:hover > td {
+  background: #222 !important;
+}
+[data-theme="luxury"] .ant-input,
+[data-theme="luxury"] .ant-select-selector,
+[data-theme="luxury"] .ant-picker {
+  background: #111 !important;
+  border-color: #2a2a2a !important;
+  color: #f0e6c8 !important;
+}
+[data-theme="luxury"] .ant-modal-content {
+  background: #1a1a1a !important;
+  color: #f0e6c8 !important;
+}
+[data-theme="luxury"] .ant-modal-header {
+  background: #111 !important;
+  border-bottom-color: #2a2a2a !important;
+}
+[data-theme="luxury"] .ant-modal-title { color: #d4a017 !important; }
+
+/* ============================================================
+   THEME 4: CUTE (Hồng - Beauty / Nữ tính)
+   ============================================================ */
+[data-theme="cute"] {
+  --primary: #e91e8c;
+  --primary-dark: #c71585;
+  --accent: #ff6bb5;
+  --primary-rgb: 233, 30, 140;
+  --accent-rgb: 255, 107, 181;
+  --success: #4caf50;
+  --danger: #f44336;
+  --warning: #ff9800;
+  --text: #3d1a2e;
+  --text-secondary: #9c5a7a;
+  --text-inverse: #ffffff;
+  --bg: #fff5fa;
+  --card-bg: #ffffff;
+  --border: #fce4f0;
+  --radius: 20px;
+  --radius-sm: 14px;
+  --radius-pill: 99px;
+  --shadow: 0 2px 14px rgba(233,30,140,0.08);
+  --shadow-lg: 0 8px 32px rgba(233,30,140,0.15);
+  --font: 'Poppins', -apple-system, sans-serif;
+
+  /* Header */
+  --header-bg: linear-gradient(135deg, #c71585 0%, #e91e8c 50%, #ff6bb5 100%);
+  --header-shadow: 0 4px 20px rgba(233,30,140,0.3);
+  --header-text: #ffffff;
+  --header-subtext: rgba(255,255,255,0.65);
+  --header-btn-bg: rgba(255,255,255,0.18);
+  --header-btn-border: rgba(255,255,255,0.28);
+
+  /* Tab bar - pill style đặc trưng */
+  --tab-bg: #ffffff;
+  --tab-border: #fce4f0;
+  --tab-inactive: #d4a0bc;
+  --tab-active: var(--primary);
+  --tab-indicator: linear-gradient(90deg, #e91e8c, #ff6bb5);
+  --tab-radius: 0;
+
+  /* Card */
+  --card-border: rgba(233,30,140,0.07);
+  --stat-card-bg: #fff5fa;
+  --stat-border-left: var(--primary);
+
+  /* Button */
+  --btn-bg: linear-gradient(135deg, #c71585, #ff6bb5);
+  --btn-shadow: 0 4px 16px rgba(233,30,140,0.35);
+
+  /* Scrollbar */
+  --scrollbar-color: rgba(233,30,140,0.3);
+
+  /* Login page */
+  --login-bg: linear-gradient(160deg, #c71585 0%, #e91e8c 50%, #ff6bb5 100%);
+  --login-card-bg: rgba(255,255,255,0.15);
+  --login-card-border: rgba(255,255,255,0.3);
+}
+
+/* Extra: Cute - card bo tròn hơn, màu pastel */
+[data-theme="cute"] .m-card {
+  background: #ffffff;
+  border: 1px solid rgba(233,30,140,0.08);
+  border-radius: 20px;
+}
+[data-theme="cute"] .stat-card {
+  background: #fff5fa;
+  border-left: 3px solid var(--primary);
+  border-radius: 14px;
+}
+[data-theme="cute"] .mobile-app {
+  box-shadow: 0 0 60px rgba(233,30,140,0.12);
+}
+[data-theme="cute"] .mobile-header {
+  border-bottom: none;
+}
+[data-theme="cute"] .bottom-tab-bar {
+  background: rgba(255,255,255,0.98);
+  border-top: 1px solid #fce4f0;
+  box-shadow: 0 -4px 20px rgba(233,30,140,0.08);
+}
+
+/* ============================================================
+   SHARED OVERRIDES - apply theo data-theme cho các phần tử chính
+   Tái dùng biến CSS thay vì hardcode màu
+   ============================================================ */
+[data-theme] .mobile-header {
+  background: var(--header-bg);
+  box-shadow: var(--header-shadow);
+}
+[data-theme] .header-shop-name { color: var(--header-text); }
+[data-theme] .header-user-name { color: var(--header-subtext); }
+[data-theme] .header-logout-btn {
+  background: var(--header-btn-bg);
+  border: 1px solid var(--header-btn-border);
+  color: var(--header-text);
+}
+[data-theme] .bottom-tab-bar {
+  background: var(--tab-bg);
+  border-top: 1px solid var(--tab-border);
+}
+[data-theme] .tab-item { color: var(--tab-inactive); }
+[data-theme] .tab-active { color: var(--tab-active); }
+[data-theme] .tab-active::before {
+  background: var(--tab-indicator);
+}
+[data-theme] .mobile-app { background: var(--bg); }
+[data-theme] .mobile-content { background: var(--bg); }
+[data-theme] .m-card { background: var(--card-bg); border-color: var(--card-border); }
+[data-theme] .stat-card { background: var(--stat-card-bg); border-left-color: var(--stat-border-left); }
+[data-theme] .btn-primary {
+  background: var(--btn-bg);
+  box-shadow: var(--btn-shadow);
+}
+[data-theme] ::-webkit-scrollbar-thumb { background: var(--scrollbar-color); }
+
+/* Font apply theo theme */
+[data-theme="classic"] * { font-family: var(--font); }
+[data-theme="nature"] * { font-family: var(--font); }
+[data-theme="luxury"] * { font-family: var(--font); }
+[data-theme="cute"] * { font-family: var(--font); }
+
+/* Luxury: font header khác */
+[data-theme="luxury"] .header-shop-name {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #ffd700;
+}
+
+/* Ant Design ink-bar dùng theme color */
+[data-theme] .ant-tabs-ink-bar {
+  background: linear-gradient(90deg, var(--primary), var(--accent)) !important;
+}
+[data-theme] .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--primary) !important;
+}

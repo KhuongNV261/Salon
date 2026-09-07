@@ -1,0 +1,14 @@
+name = "salon"
+compatibility_date = "2024-09-23"
+
+# Serve static files từ thư mục build của frontend
+[assets]
+directory = "./frontend/dist"
+
+# Build configuration
+[build]
+command = "cd frontend && npm install && npm run build"
+
+# Environment variables cho build
+[vars]
+VITE_API_URL = "https://salon-p2ww.onrender.com"

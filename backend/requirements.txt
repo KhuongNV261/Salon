@@ -1,0 +1,9 @@
+flask
+flask-jwt-extended
+flask-cors
+sqlalchemy
+psycopg[binary]
+gunicorn
+python-dotenv
+werkzeug
+python-dateutil
