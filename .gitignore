@@ -14,3 +14,7 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Scripts chứa credentials - KHÔNG push lên GitHub
+Day_Len_Web.bat
+Chay_Local.bat
