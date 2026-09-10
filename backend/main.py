@@ -653,12 +653,13 @@ def public_get_services(slug):
         if not t: return err("Không tìm thấy tiệm", 404)
         svcs = db.query(Product).filter(
             Product.tenant_id == t.id,
-            Product.is_service == True,
             Product.is_active == True
-        ).order_by(Product.name).all()
+        ).order_by(Product.sort_order, Product.name).all()
         return ok([{
             "id": str(s.id), "name": s.name,
-            "price": float(s.price or 0), "description": s.description or ""
+            "price": float(s.price or 0),
+            "duration": 30,
+            "is_service": s.is_service
         } for s in svcs])
     finally:
         db.close()
