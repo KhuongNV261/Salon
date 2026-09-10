@@ -99,6 +99,7 @@ class Product(Base):
     sort_order = Column(SmallInteger, default=0)
     commission_main_pct = Column(Numeric(5, 2), default=0)   # % HH thợ chính
     commission_assist_pct = Column(Numeric(5, 2), default=0) # % HH thợ phụ
+    description = Column(Text, default='')                   # Mô tả dịch vụ
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class Customer(Base):
