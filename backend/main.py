@@ -36,6 +36,7 @@ Session = sessionmaker(bind=engine)
 
 class Base(DeclarativeBase): pass
 
+
 class Tenant(Base):
     __tablename__ = "tenants"
     id = Column(PGUUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -318,6 +319,9 @@ class CommissionRecord(Base):
 
 def get_db():
     return Session()
+
+# Tự động tạo bảng còn thiếu khi startup (idempotent - an toàn khi chạy nhiều lần)
+Base.metadata.create_all(engine)
 
 def current_user_info():
     identity = get_jwt_identity()
