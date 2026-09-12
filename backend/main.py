@@ -69,6 +69,7 @@ class User(Base):
     commission_rate = Column(Numeric(5, 2), default=0)
     is_active = Column(Boolean, default=True)
     notify_upcoming = Column(Boolean, default=False, server_default='false')
+    avatar_url = Column(Text, nullable=True)  # ảnh đại diện thợ (base64 hoặc URL)
     last_login_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -677,7 +678,7 @@ def public_get_stylists(slug):
             User.role.in_(["staff", "owner"]),
             User.is_active == True
         ).all()
-        return ok([{"id": str(s.id), "name": s.name, "role": s.role} for s in stylists])
+        return ok([{"id": str(s.id), "name": s.name, "role": s.role, "avatar_url": s.avatar_url or None} for s in stylists])
     finally:
         db.close()
 
@@ -1304,6 +1305,7 @@ def list_staff():
             "id": str(u.id), "name": u.name, "phone": u.phone,
             "role": u.role, "commission_rate": float(u.commission_rate or 0),
             "is_active": u.is_active,
+            "avatar_url": u.avatar_url or None,
             "notify_upcoming": bool(u.notify_upcoming),
             "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None
         } for u in users])
@@ -1355,6 +1357,7 @@ def update_staff(user_id):
         if "commission_rate" in d: u.commission_rate = d["commission_rate"]
         if "is_active" in d: u.is_active = d["is_active"]
         if "notify_upcoming" in d: u.notify_upcoming = bool(d["notify_upcoming"])
+        if "avatar_url" in d: u.avatar_url = d["avatar_url"]
         if d.get("password"): u.password_hash = generate_password_hash(d["password"])
         db.commit()
         return ok({"message": "Cập nhật thành công"})
@@ -1372,6 +1375,26 @@ def delete_staff(user_id):
         u.is_active = False
         db.commit()
         return ok({"message": "Đã vô hiệu hóa tài khoản"})
+    finally:
+        db.close()
+
+@app.put("/api/staff/<user_id>/avatar")
+@jwt_required()
+def update_staff_avatar(user_id):
+    """Upload ảnh đại diện thợ (base64 data URL)"""
+    _, tenant_id, _ = current_user_info()
+    d = request.json
+    db = get_db()
+    try:
+        u = db.query(User).filter(User.id == user_id, User.tenant_id == tenant_id).first()
+        if not u: return err("Không tìm thấy nhân viên", 404)
+        avatar = d.get("avatar_url", "")
+        # Giới hạn kích thước: max ~500KB base64
+        if len(avatar) > 700000:
+            return err("Ảnh quá lớn, vui lòng chọn ảnh nhỏ hơn 500KB", 400)
+        u.avatar_url = avatar or None
+        db.commit()
+        return ok({"message": "Cập nhật ảnh thành công", "avatar_url": u.avatar_url})
     finally:
         db.close()
 
@@ -2968,6 +2991,8 @@ def run_migration():
             "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS commission_assist_pct NUMERIC(5,2) DEFAULT 0",
             "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS commission_main_amount NUMERIC(12,0) DEFAULT 0",
             "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS commission_assist_amount NUMERIC(12,0) DEFAULT 0",
+            # avatar thợ
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT",
         ]
         with engine.connect() as conn:
             for stmt in alter_stmts:

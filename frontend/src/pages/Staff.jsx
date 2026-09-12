@@ -32,6 +32,8 @@ export default function Staff() {
   const [commDrawer, setCommDrawer] = useState(null)
   const [commData, setCommData] = useState(null)
   const [dateRange, setDateRange] = useState([dayjs().startOf('month'), dayjs()])
+  const [avatarPreview, setAvatarPreview] = useState(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [form] = Form.useForm()
   const screens = useBreakpoint()
   const isMobile = !screens.md
@@ -45,6 +47,7 @@ export default function Staff() {
 
   const openModal = (record = null) => {
     setEditing(record)
+    setAvatarPreview(record?.avatar_url || null)
     form.resetFields()
     if (record) {
       form.setFieldsValue({
@@ -58,15 +61,40 @@ export default function Staff() {
     setModal(true)
   }
 
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 500 * 1024) return message.warning('Ảnh quá lớn! Chọn ảnh dưới 500KB nhé.')
+    const reader = new FileReader()
+    reader.onload = (ev) => setAvatarPreview(ev.target.result)
+    reader.readAsDataURL(file)
+  }
+
+  const uploadAvatar = async (staffId) => {
+    if (!avatarPreview || avatarPreview === editing?.avatar_url) return
+    setUploadingAvatar(true)
+    try {
+      await api.put(`/api/staff/${staffId}/avatar`, { avatar_url: avatarPreview })
+    } catch (e) {
+      message.warning('Lưu ảnh thất bại, nhưng thông tin đã lưu.')
+    } finally { setUploadingAvatar(false) }
+  }
+
   const save = async (vals) => {
     setLoading(true)
     try {
+      let staffId = editing?.id
       if (editing) {
         await api.put(`/api/staff/${editing.id}`, vals)
         message.success('Cập nhật nhân viên thành công!')
       } else {
-        await api.post('/api/staff', { ...vals, password: vals.password || '123456' })
+        const res = await api.post('/api/staff', { ...vals, password: vals.password || '123456' })
+        staffId = res.data.id
         message.success(`Tạo tài khoản thành công! Mật khẩu mặc định: ${vals.password || '123456'}`)
+      }
+      // Upload avatar nếu có thay đổi
+      if (staffId && avatarPreview !== (editing?.avatar_url || null)) {
+        await uploadAvatar(staffId)
       }
       setModal(false)
       load()
@@ -118,7 +146,10 @@ export default function Staff() {
       title: 'Nhân viên',
       render: (_, r) => (
         <Space>
-          <Avatar style={{ background: r.role === 'owner' ? '#f39c12' : '#667eea', flexShrink: 0 }} icon={<UserOutlined />} />
+          {r.avatar_url
+            ? <img src={r.avatar_url} alt={r.name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid #667eea', flexShrink: 0 }} />
+            : <Avatar style={{ background: r.role === 'owner' ? '#f39c12' : '#667eea', flexShrink: 0 }} icon={<UserOutlined />} />
+          }
           <div>
             <div style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{r.name}</div>
             <Text type="secondary" style={{ fontSize: 12 }}>
@@ -377,6 +408,22 @@ export default function Staff() {
         style={isMobile ? { top: 20 } : {}}
       >
         <Form form={form} layout="vertical" onFinish={save}>
+          {/* Upload ảnh đại diện */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 20 }}>
+            <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => document.getElementById('avatar-upload-input').click()}>
+              {avatarPreview
+                ? <img src={avatarPreview} alt="avatar" style={{ width: 90, height: 90, borderRadius: '50%', objectFit: 'cover', border: '3px solid #667eea', boxShadow: '0 4px 16px rgba(102,126,234,0.3)' }} />
+                : <div style={{ width: 90, height: 90, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, border: '3px dashed rgba(102,126,234,0.5)', cursor: 'pointer' }}>👤</div>
+              }
+              <div style={{ position: 'absolute', bottom: 0, right: 0, background: '#667eea', borderRadius: '50%', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, border: '2px solid #fff' }}>📷</div>
+            </div>
+            <input id="avatar-upload-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
+            <div style={{ fontSize: 12, color: '#999', marginTop: 8 }}>Nhấp để chọn ảnh (max 500KB)</div>
+            {avatarPreview && (
+              <button type="button" onClick={() => setAvatarPreview(null)} style={{ fontSize: 11, color: '#ff4d4f', background: 'none', border: 'none', cursor: 'pointer', marginTop: 4 }}>✕ Xóa ảnh</button>
+            )}
+          </div>
+
           <Form.Item name="name" label="Họ tên" rules={[{ required: true, message: 'Nhập họ tên' }]}>
             <Input prefix={<UserOutlined />} placeholder="Nguyễn Thị Mai" />
           </Form.Item>

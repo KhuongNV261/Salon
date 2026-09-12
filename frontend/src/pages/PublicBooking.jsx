@@ -106,6 +106,7 @@ export default function PublicBooking({ shopInfo }) {
   const selectedSvc = services.find(s => s.id === selectedService)
   const canBook = !!(selectedSlot && customerName.trim() && customerPhone.trim())
   const grad = 'linear-gradient(135deg,#7c3aed,#ec4899)'
+  const [stylDropOpen, setStylDropOpen] = useState(false)
 
   // ── Màn hình thành công ──
   if (bookResult) return (
@@ -187,15 +188,68 @@ export default function PublicBooking({ shopInfo }) {
               }
             </div>
 
-            {/* CHỌN THỢ */}
+            {/* CHON THO */}
             {stylists.length > 0 && (
               <div style={{ marginBottom: 24 }}>
-                <Divider title='Chọn thợ 💇' />
-                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-                  {[{ id: null, name: '🎲 Bất kỳ' }, ...stylists.map(s => ({ ...s, name: '✂️ ' + s.name }))].map(s => {
-                    const active = selectedStylist === s.id
-                    return <button key={s.id ?? 'any'} onClick={() => setSelectedStylist(s.id)} style={{ flexShrink: 0, padding: '9px 16px', borderRadius: 50, border: active ? 'none' : '1.5px solid rgba(255,255,255,0.15)', background: active ? grad : 'rgba(255,255,255,0.06)', color: active ? '#fff' : 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 13, fontWeight: 600, boxShadow: active ? '0 4px 16px rgba(124,58,237,0.4)' : 'none', transition: 'all 0.2s' }}>{s.name}</button>
-                  })}
+                <Divider title='Chon tho 💇' />
+                {/* Custom dropdown co anh */}
+                <div style={{ position: 'relative' }}>
+                  <div
+                    onClick={() => setStylDropOpen(o => !o)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.07)', border: stylDropOpen ? '1.5px solid rgba(124,58,237,0.6)' : '1.5px solid rgba(255,255,255,0.15)', borderRadius: 14, padding: '10px 14px', cursor: 'pointer', transition: 'all 0.2s' }}
+                  >
+                    {selectedStylist
+                      ? (() => {
+                          const s = stylists.find(x => x.id === selectedStylist)
+                          return (
+                            <>
+                              {s?.avatar_url
+                                ? <img src={s.avatar_url} alt={s?.name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(124,58,237,0.6)', flexShrink: 0 }} />
+                                : <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#7c3aed,#ec4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>✂️</div>
+                              }
+                              <div>
+                                <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>{s?.name}</div>
+                                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>✂️ Tho cat toc</div>
+                              </div>
+                            </>
+                          )
+                        })()
+                      : (
+                        <>
+                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🎲</div>
+                          <div>
+                            <div style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600, fontSize: 14 }}>Bat ky</div>
+                            <div style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>He thong tu dong phan cong</div>
+                          </div>
+                        </>
+                      )
+                    }
+                    <span style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.35)', fontSize: 14, transition: 'transform 0.2s', transform: stylDropOpen ? 'rotate(180deg)' : 'none', display: 'inline-block' }}>▼</span>
+                  </div>
+
+                  {stylDropOpen && (
+                    <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, background: '#1a1535', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, zIndex: 50, overflow: 'hidden', boxShadow: '0 16px 40px rgba(0,0,0,0.6)' }}>
+                      {[{ id: null, name: 'Bat ky', avatar_url: null, _sub: 'He thong tu dong phan cong' }, ...stylists.map(s => ({ ...s, _sub: '✂️ Tho cat toc' }))].map((s, i, arr) => {
+                        const active = selectedStylist === s.id
+                        return (
+                          <div key={s.id ?? 'any'}
+                            onClick={() => { setSelectedStylist(s.id); setStylDropOpen(false) }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', cursor: 'pointer', background: active ? 'rgba(124,58,237,0.2)' : 'transparent', borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none', transition: 'background 0.15s' }}
+                          >
+                            {s.avatar_url
+                              ? <img src={s.avatar_url} alt={s.name} style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover', border: active ? '2.5px solid #7c3aed' : '2px solid rgba(255,255,255,0.12)', flexShrink: 0 }} />
+                              : <div style={{ width: 42, height: 42, borderRadius: '50%', background: s.id ? 'linear-gradient(135deg,#7c3aed,#ec4899)' : 'rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0, border: active ? '2.5px solid #7c3aed' : '2px solid rgba(255,255,255,0.08)' }}>{s.id ? '✂️' : '🎲'}</div>
+                            }
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 14, fontWeight: active ? 700 : 500, color: active ? '#e9d5ff' : 'rgba(255,255,255,0.85)' }}>{s.name}</div>
+                              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>{s._sub}</div>
+                            </div>
+                            {active && <span style={{ color: '#a78bfa', fontSize: 18, marginLeft: 'auto' }}>✓</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
