@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Input, message } from 'antd'
-import { Link, useParams } from 'react-router-dom'
+import { message } from 'antd'
 import api from '../api'
 import dayjs from 'dayjs'
 import 'dayjs/locale/vi'
@@ -23,41 +22,17 @@ function genSlots(openTime, closeTime, intervalMin) {
   return slots
 }
 
-const DAYS_VN = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
+const DAYS_VN = ['CN','T2','T3','T4','T5','T6','T7']
 const MONTHS_VN = ['Th1','Th2','Th3','Th4','Th5','Th6','Th7','Th8','Th9','Th10','Th11','Th12']
 
-function DateStrip({ selected, onChange }) {
-  const days = Array.from({ length: 14 }, (_, i) => dayjs().add(i, 'day'))
-  return (
-    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '4px 0 8px', scrollbarWidth: 'none' }}>
-      {days.map(d => {
-        const val = d.format('YYYY-MM-DD')
-        const active = val === selected
-        return (
-          <button key={val} onClick={() => onChange(val)} style={{
-            flexShrink: 0, width: 52, padding: '8px 4px', borderRadius: 14,
-            border: active ? 'none' : '1.5px solid #e8e8f0',
-            background: active ? 'linear-gradient(135deg,#7c3aed,#ec4899)' : '#fff',
-            color: active ? '#fff' : '#555', cursor: 'pointer',
-            boxShadow: active ? '0 4px 16px rgba(124,58,237,0.4)' : 'none', transition: 'all 0.15s'
-          }}>
-            <div style={{ fontSize: 10, fontWeight: 600, opacity: active ? 1 : 0.6 }}>{DAYS_VN[d.day()]}</div>
-            <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1.2 }}>{d.date()}</div>
-            <div style={{ fontSize: 10, opacity: active ? 0.8 : 0.5 }}>{MONTHS_VN[d.month()]}</div>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 export default function PublicBooking({ shopInfo }) {
-  const { slug } = useParams()
-  const [step, setStep] = useState(1)
+  // Lấy slug từ shopInfo.slug (subdomain mode) hoặc fallback từ pathname
+  const slug = shopInfo?.slug || window.location.hostname.split('.')[0]
   const [settings, setSettings] = useState({ open_time: '08:00', close_time: '20:00', slot_interval: 30 })
   const [services, setServices] = useState([])
   const [stylists, setStylists] = useState([])
   const [busySlots, setBusySlots] = useState({})
+  const [loading, setLoading] = useState(true)
   const [selectedService, setSelectedService] = useState(null)
   const [selectedStylist, setSelectedStylist] = useState(null)
   const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'))
@@ -68,10 +43,15 @@ export default function PublicBooking({ shopInfo }) {
   const [submitting, setSubmitting] = useState(false)
   const [bookResult, setBookResult] = useState(null)
 
-  useEffect(() => { loadData() }, [])
-  useEffect(() => { if (step === 2) loadAvailability() }, [step, selectedDate, selectedStylist])
+  const shopName = shopInfo?.name || 'Tiệm Tóc'
+  const shopPhone = shopInfo?.phone || ''
+  const shopAddress = shopInfo?.address || ''
+
+  useEffect(() => { if (slug) loadData() }, [slug])
+  useEffect(() => { if (slug && selectedDate) loadAvailability() }, [slug, selectedDate, selectedStylist])
 
   const loadData = async () => {
+    setLoading(true)
     try {
       const [s, st, svc] = await Promise.all([
         api.get(`/api/public/${slug}/settings`).catch(() => ({ data: {} })),
@@ -82,6 +62,7 @@ export default function PublicBooking({ shopInfo }) {
       setStylists(st.data || [])
       setServices(svc.data || [])
     } catch {}
+    finally { setLoading(false) }
   }
 
   const loadAvailability = async () => {
@@ -94,8 +75,9 @@ export default function PublicBooking({ shopInfo }) {
   }
 
   const handleBook = async () => {
-    if (!customerName.trim()) return message.warning('Ban chua nhap ten!')
-    if (!customerPhone.trim()) return message.warning('Ban chua nhap so dien thoai!')
+    if (!selectedSlot) return message.warning('Vui lòng chọn giờ!')
+    if (!customerName.trim()) return message.warning('Vui lòng nhập tên!')
+    if (!customerPhone.trim()) return message.warning('Vui lòng nhập số điện thoại!')
     setSubmitting(true)
     try {
       const stylist = stylists.find(s => s.id === selectedStylist)
@@ -108,102 +90,137 @@ export default function PublicBooking({ shopInfo }) {
         duration_minutes: settings.slot_interval, note: note || null,
       })
       setBookResult({ stylist_name: res.data.stylist_name || 'Sẽ phân công sau', service_name: svc?.name || '', date: selectedDate, time: selectedSlot, customer_name: customerName })
-      setStep(4)
-    } catch (e) { message.error(e.response?.data?.error || 'Dat lich that bai!') }
+    } catch (e) { message.error(e.response?.data?.error || 'Đặt lịch thất bại!') }
     finally { setSubmitting(false) }
+  }
+
+  const resetForm = () => {
+    setBookResult(null); setSelectedService(null); setSelectedSlot(null)
+    setCustomerName(''); setCustomerPhone(''); setNote('')
   }
 
   const allSlots = genSlots(settings.open_time, settings.close_time, settings.slot_interval)
   const nowMin = dayjs().hour() * 60 + dayjs().minute()
   const isToday = selectedDate === dayjs().format('YYYY-MM-DD')
-  const shopName = shopInfo?.name || 'Tiem Toc Hoa Lan'
-  const shopPhone = shopInfo?.phone || ''
-  const shopAddress = shopInfo?.address || ''
+  const days14 = Array.from({ length: 14 }, (_, i) => dayjs().add(i, 'day'))
+  const selectedSvc = services.find(s => s.id === selectedService)
+  const canBook = !!(selectedSlot && customerName.trim() && customerPhone.trim())
+  const grad = 'linear-gradient(135deg,#7c3aed,#ec4899)'
 
-  const btnPrimary = { width: '100%', height: 52, border: 'none', borderRadius: 16, background: 'linear-gradient(135deg,#7c3aed,#ec4899)', color: '#fff', fontSize: 16, fontWeight: 700, cursor: 'pointer', boxShadow: '0 6px 20px rgba(124,58,237,0.4)', transition: 'all 0.2s' }
-  const btnBack = { flex: 0, padding: '0 20px', height: 52, border: '1.5px solid #e8e8f0', borderRadius: 16, background: '#fff', color: '#555', fontSize: 14, cursor: 'pointer' }
+  // ── Màn hình thành công ──
+  if (bookResult) return (
+    <div style={{ minHeight: '100dvh', background: 'linear-gradient(160deg,#0f0c29,#302b63,#24243e)', fontFamily: "'Inter',sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
+      <div style={{ maxWidth: 420, width: '100%', textAlign: 'center' }}>
+        <div style={{ fontSize: 80, marginBottom: 16 }}>🎉</div>
+        <h2 style={{ color: '#fff', fontSize: 26, fontWeight: 900, margin: '0 0 8px' }}>Đặt lịch thành công!</h2>
+        <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 28 }}>Cảm ơn <strong style={{ color: '#ec4899' }}>{bookResult.customer_name}</strong> đã tin tưởng {shopName}! 🌸</p>
+        <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: '20px', marginBottom: 20, textAlign: 'left' }}>
+          {[
+            ['Dịch vụ', bookResult.service_name || 'Chưa chọn'],
+            ['Thợ', bookResult.stylist_name],
+            ['Ngày', dayjs(bookResult.date).format('dddd, DD/MM/YYYY')],
+            ['Giờ', bookResult.time],
+          ].map(([k, v]) => (
+            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>{k}</span>
+              <span style={{ color: k === 'Giờ' ? '#ec4899' : '#fff', fontWeight: k === 'Giờ' ? 900 : 600, fontSize: k === 'Giờ' ? 20 : 14 }}>{v}</span>
+            </div>
+          ))}
+        </div>
+        {shopPhone && <a href={`tel:${shopPhone}`} style={{ display: 'block', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 14, padding: '14px', color: '#fff', textDecoration: 'none', fontWeight: 700, marginBottom: 12 }}>📞 Gọi tiệm: {shopPhone}</a>}
+        <button onClick={resetForm} style={{ width: '100%', height: 52, border: 'none', borderRadius: 14, background: grad, color: '#fff', fontSize: 16, fontWeight: 700, cursor: 'pointer' }}>📅 Đặt thêm lịch</button>
+      </div>
+    </div>
+  )
 
+  const Divider = ({ title, right }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+      <div style={{ width: 4, height: 20, background: grad, borderRadius: 4 }} />
+      <span style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{title}</span>
+      {right && <span style={{ marginLeft: 'auto' }}>{right}</span>}
+    </div>
+  )
+
+  // ── Màn hình đặt lịch ──
   return (
-    <div style={{ minHeight: '100dvh', background: '#faf5ff', fontFamily: "'Inter','Segoe UI',sans-serif" }}>
+    <div style={{ minHeight: '100dvh', background: 'linear-gradient(160deg,#0f0c29,#302b63,#24243e)', fontFamily: "'Inter',sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap'); *{box-sizing:border-box} ::-webkit-scrollbar{display:none} input::placeholder{color:rgba(255,255,255,0.25)} input:focus{border-color:rgba(124,58,237,0.6)!important;outline:none}`}</style>
+
       {/* Header */}
-      <div style={{ background: 'linear-gradient(135deg,#7c3aed,#ec4899)', padding: '20px 20px 32px', position: 'relative', borderBottomLeftRadius: 28, borderBottomRightRadius: 28, boxShadow: '0 8px 32px rgba(124,58,237,0.35)' }}>
-        <Link to={`/${slug}/login`} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', textDecoration: 'none', borderRadius: 50, padding: '6px 14px', fontSize: 12, fontWeight: 600 }}>Dang nhap</Link>
-        <div style={{ textAlign: 'center', paddingTop: 8 }}>
-          <div style={{ fontSize: 52, marginBottom: 6 }}>💐</div>
-          <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 900, margin: 0 }}>{shopName}</h1>
-          {shopAddress && <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 6 }}>📍 {shopAddress}</div>}
-          {shopPhone && <a href={`tel:${shopPhone}`} style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, textDecoration: 'none', display: 'block', marginTop: 4 }}>📞 {shopPhone}</a>}
-          <div style={{ marginTop: 12, background: 'rgba(255,255,255,0.2)', borderRadius: 50, padding: '6px 16px', display: 'inline-block', fontSize: 13, color: '#fff', fontWeight: 600 }}>📅 Dat lich truc tuyen — Mien phi</div>
+      <div style={{ background: 'rgba(255,255,255,0.04)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 900, color: '#fff' }}>{shopName}</div>
+          {shopAddress && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>📍 {shopAddress}</div>}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {shopPhone && <a href={`tel:${shopPhone}`} style={{ background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.35)', borderRadius: 20, padding: '7px 13px', color: '#10b981', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>📞 Gọi</a>}
+          <a href='/login' style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 20, padding: '7px 13px', color: '#fff', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>Đăng nhập</a>
         </div>
       </div>
 
-      <div style={{ padding: '20px 16px 100px', maxWidth: 480, margin: '0 auto' }}>
-
-        {/* Step indicator */}
-        {step < 4 && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
-            {[{ n: 1, label: 'Dich vu' }, { n: 2, label: 'Thoi gian' }, { n: 3, label: 'Thong tin' }].map((s, i) => (
-              <React.Fragment key={s.n}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ width: 32, height: 32, borderRadius: '50%', margin: '0 auto 4px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: step >= s.n ? 'linear-gradient(135deg,#7c3aed,#ec4899)' : '#e5e7eb', color: step >= s.n ? '#fff' : '#9ca3af', fontWeight: 700, fontSize: 14, boxShadow: step === s.n ? '0 4px 12px rgba(124,58,237,0.4)' : 'none', transition: 'all 0.3s' }}>{step > s.n ? '✓' : s.n}</div>
-                  <div style={{ fontSize: 10, color: step >= s.n ? '#7c3aed' : '#9ca3af', fontWeight: 600 }}>{s.label}</div>
-                </div>
-                {i < 2 && <div style={{ flex: 1, height: 2, background: step > s.n ? 'linear-gradient(90deg,#7c3aed,#ec4899)' : '#e5e7eb', margin: '0 6px 20px', transition: 'all 0.3s' }} />}
-              </React.Fragment>
-            ))}
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '20px 16px 48px' }}>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '60px 0', color: 'rgba(255,255,255,0.4)' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>✂️</div>
+            <div>Đang tải...</div>
           </div>
-        )}
+        ) : (
+          <>
+            {/* DỊCH VỤ */}
+            <div style={{ marginBottom: 24 }}>
+              <Divider title='Dịch vụ ✂️' right={selectedSvc && <span style={{ fontSize: 12, background: 'rgba(124,58,237,0.3)', border: '1px solid rgba(124,58,237,0.5)', borderRadius: 20, padding: '3px 10px', color: '#c4b5fd', fontWeight: 600 }}>✓ {selectedSvc.name}</span>} />
+              {services.length === 0
+                ? <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', padding: 20, fontSize: 13 }}>Chưa có dịch vụ nào</div>
+                : <div style={{ display: 'grid', gridTemplateColumns: services.length === 1 ? '1fr' : 'repeat(2,1fr)', gap: 10 }}>
+                    {services.map(svc => {
+                      const active = selectedService === svc.id
+                      return (
+                        <button key={svc.id} onClick={() => setSelectedService(active ? null : svc.id)} style={{ background: active ? 'linear-gradient(135deg,rgba(124,58,237,0.45),rgba(236,72,153,0.35))' : 'rgba(255,255,255,0.06)', border: active ? '1.5px solid rgba(124,58,237,0.8)' : '1.5px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: '14px', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', boxShadow: active ? '0 4px 20px rgba(124,58,237,0.3)' : 'none', width: '100%', position: 'relative' }}>
+                          {active && <div style={{ position: 'absolute', top: 10, right: 10, fontSize: 14 }}>✅</div>}
+                          <div style={{ fontSize: 13, fontWeight: 700, color: active ? '#e9d5ff' : 'rgba(255,255,255,0.85)', marginBottom: 4, paddingRight: 20 }}>✂️ {svc.name}</div>
+                          {svc.description && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 6 }}>{svc.description}</div>}
+                          <div style={{ fontSize: 15, fontWeight: 900, color: active ? '#f0abfc' : '#c4b5fd' }}>{fmtMoney(svc.price)}</div>
+                        </button>
+                      )
+                    })}
+                  </div>
+              }
+            </div>
 
-        {/* STEP 1 */}
-        {step === 1 && (
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#1e1b4b', marginBottom: 4 }}>Chon dich vu ✂️</div>
-            <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 16 }}>Chon dich vu ban muon</div>
-            {services.length === 0 ? <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af' }}><div style={{ fontSize: 40 }}>✂️</div><div style={{ marginTop: 8 }}>Dang tai...</div></div> : (
-              <>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-                  {services.map(svc => (
-                    <button key={svc.id} onClick={() => setSelectedService(svc.id === selectedService ? null : svc.id)} style={{ background: selectedService === svc.id ? 'linear-gradient(135deg,#f5f3ff,#fdf4ff)' : '#fff', border: selectedService === svc.id ? '2px solid #7c3aed' : '2px solid #f0f0f0', borderRadius: 16, padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', transition: 'all 0.15s', boxShadow: selectedService === svc.id ? '0 4px 16px rgba(124,58,237,0.15)' : '0 1px 4px rgba(0,0,0,0.06)', width: '100%' }}>
-                      <div style={{ textAlign: 'left' }}>
-                        <div style={{ fontWeight: 700, fontSize: 15, color: selectedService === svc.id ? '#7c3aed' : '#1e1b4b' }}>✂️ {svc.name}</div>
-                        {svc.description && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>{svc.description}</div>}
-                      </div>
-                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <div style={{ fontWeight: 800, fontSize: 16, color: '#7c3aed' }}>{fmtMoney(svc.price)}</div>
-                        {selectedService === svc.id && <div style={{ fontSize: 16 }}>✅</div>}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-                <button onClick={() => setStep(2)} disabled={!selectedService} style={{ ...btnPrimary, marginBottom: 8, opacity: !selectedService ? 0.5 : 1 }}>Tiep theo →</button>
-                <button onClick={() => setStep(2)} style={{ width: '100%', height: 44, border: '1.5px solid #e8e8f0', borderRadius: 16, background: '#fff', color: '#9ca3af', fontSize: 14, cursor: 'pointer' }}>Bo qua, chon gio truoc</button>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* STEP 2 */}
-        {step === 2 && (
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#1e1b4b', marginBottom: 4 }}>Chon thoi gian 📅</div>
-            <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 16 }}>Chon tho, ngay va gio phu hop</div>
+            {/* CHỌN THỢ */}
             {stylists.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#555', marginBottom: 8 }}>✂️ Chon tho:</div>
-                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
-                  <button onClick={() => setSelectedStylist(null)} style={{ flexShrink: 0, padding: '8px 14px', borderRadius: 50, border: !selectedStylist ? 'none' : '1.5px solid #e8e8f0', background: !selectedStylist ? 'linear-gradient(135deg,#7c3aed,#ec4899)' : '#fff', color: !selectedStylist ? '#fff' : '#555', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Bat ky</button>
-                  {stylists.map(s => (
-                    <button key={s.id} onClick={() => setSelectedStylist(s.id)} style={{ flexShrink: 0, padding: '8px 14px', borderRadius: 50, border: selectedStylist === s.id ? 'none' : '1.5px solid #e8e8f0', background: selectedStylist === s.id ? 'linear-gradient(135deg,#7c3aed,#ec4899)' : '#fff', color: selectedStylist === s.id ? '#fff' : '#555', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>✂️ {s.name}</button>
-                  ))}
+              <div style={{ marginBottom: 24 }}>
+                <Divider title='Chọn thợ 💇' />
+                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                  {[{ id: null, name: '🎲 Bất kỳ' }, ...stylists.map(s => ({ ...s, name: '✂️ ' + s.name }))].map(s => {
+                    const active = selectedStylist === s.id
+                    return <button key={s.id ?? 'any'} onClick={() => setSelectedStylist(s.id)} style={{ flexShrink: 0, padding: '9px 16px', borderRadius: 50, border: active ? 'none' : '1.5px solid rgba(255,255,255,0.15)', background: active ? grad : 'rgba(255,255,255,0.06)', color: active ? '#fff' : 'rgba(255,255,255,0.7)', cursor: 'pointer', fontSize: 13, fontWeight: 600, boxShadow: active ? '0 4px 16px rgba(124,58,237,0.4)' : 'none', transition: 'all 0.2s' }}>{s.name}</button>
+                  })}
                 </div>
               </div>
             )}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#555', marginBottom: 8 }}>📅 Chon ngay:</div>
-              <DateStrip selected={selectedDate} onChange={(d) => { setSelectedDate(d); setSelectedSlot(null) }} />
+
+            {/* CHỌN NGÀY */}
+            <div style={{ marginBottom: 24 }}>
+              <Divider title='Chọn ngày 📅' right={<span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{dayjs(selectedDate).format('ddd, DD/MM')}</span>} />
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                {days14.map(d => {
+                  const val = d.format('YYYY-MM-DD')
+                  const active = val === selectedDate
+                  return (
+                    <button key={val} onClick={() => { setSelectedDate(val); setSelectedSlot(null) }} style={{ flexShrink: 0, width: 54, padding: '10px 4px', borderRadius: 16, border: active ? 'none' : '1.5px solid rgba(255,255,255,0.1)', background: active ? grad : 'rgba(255,255,255,0.05)', color: active ? '#fff' : 'rgba(255,255,255,0.6)', cursor: 'pointer', transition: 'all 0.2s', boxShadow: active ? '0 4px 16px rgba(124,58,237,0.4)' : 'none' }}>
+                      <div style={{ fontSize: 10, fontWeight: 700 }}>{DAYS_VN[d.day()]}</div>
+                      <div style={{ fontSize: 19, fontWeight: 900, lineHeight: 1.2 }}>{d.date()}</div>
+                      <div style={{ fontSize: 10, opacity: 0.7 }}>{MONTHS_VN[d.month()]}</div>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#555', marginBottom: 8 }}>🕐 Chon gio — {dayjs(selectedDate).format('ddd DD/MM')}:</div>
+
+            {/* CHỌN GIỜ */}
+            <div style={{ marginBottom: 24 }}>
+              <Divider title='Chọn giờ 🕐' right={selectedSlot && <span style={{ fontSize: 14, fontWeight: 900, color: '#ec4899' }}>🕐 {selectedSlot}</span>} />
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
                 {allSlots.map(slot => {
                   const [h, m] = slot.split(':').map(Number)
@@ -213,67 +230,52 @@ export default function PublicBooking({ shopInfo }) {
                   const isSelected = slot === selectedSlot
                   const disabled = isBusy || isPast
                   return (
-                    <button key={slot} onClick={() => !disabled && setSelectedSlot(slot)} style={{ padding: '10px 4px', borderRadius: 12, border: isSelected ? 'none' : `1.5px solid ${disabled ? '#f0f0f0' : '#e8e8f0'}`, background: isSelected ? 'linear-gradient(135deg,#7c3aed,#ec4899)' : isBusy ? '#fef2f2' : isPast ? '#f9fafb' : '#fff', color: isSelected ? '#fff' : disabled ? '#d1d5db' : '#374151', cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: isSelected ? 700 : 500, fontSize: 13, boxShadow: isSelected ? '0 4px 12px rgba(124,58,237,0.4)' : 'none', textDecoration: isBusy ? 'line-through' : 'none', transition: 'all 0.15s' }}>
+                    <button key={slot} disabled={disabled} onClick={() => setSelectedSlot(slot)} style={{ padding: '11px 4px', borderRadius: 12, border: isSelected ? 'none' : `1.5px solid ${disabled ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.12)'}`, background: isSelected ? grad : isBusy ? 'rgba(239,68,68,0.08)' : isPast ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.06)', color: isSelected ? '#fff' : disabled ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.75)', cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: isSelected ? 800 : 500, fontSize: 13, boxShadow: isSelected ? '0 4px 16px rgba(124,58,237,0.5)' : 'none', textDecoration: isBusy ? 'line-through' : 'none', transition: 'all 0.15s' }}>
                       {slot}
-                      {isBusy && <div style={{ fontSize: 9, marginTop: 1 }}>Het</div>}
+                      {isBusy && <div style={{ fontSize: 9, marginTop: 2, color: 'rgba(239,68,68,0.7)' }}>Hết</div>}
                     </button>
                   )
                 })}
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setStep(1)} style={btnBack}>← Quay lai</button>
-              <button onClick={() => setStep(3)} disabled={!selectedSlot} style={{ ...btnPrimary, flex: 1, opacity: !selectedSlot ? 0.5 : 1 }}>Tiep theo →</button>
-            </div>
-          </div>
-        )}
 
-        {/* STEP 3 */}
-        {step === 3 && (
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#1e1b4b', marginBottom: 4 }}>Thong tin cua ban 👤</div>
-            <div style={{ fontSize: 13, color: '#9ca3af', marginBottom: 20 }}>De tiem xac nhan va nhac lich hen</div>
-            <div style={{ background: 'linear-gradient(135deg,#f5f3ff,#fdf4ff)', border: '1px solid #e9d5ff', borderRadius: 16, padding: '14px 16px', marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed', marginBottom: 8 }}>📋 Lich hen cua ban</div>
-              {selectedService && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}><span style={{ color: '#6b7280' }}>Dich vu:</span><span style={{ fontWeight: 600 }}>{services.find(s => s.id === selectedService)?.name}</span></div>}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}><span style={{ color: '#6b7280' }}>Tho:</span><span style={{ fontWeight: 600 }}>{stylists.find(s => s.id === selectedStylist)?.name || 'Bat ky'}</span></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}><span style={{ color: '#6b7280' }}>Ngay:</span><span style={{ fontWeight: 600 }}>{dayjs(selectedDate).format('ddd DD/MM/YYYY')}</span></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}><span style={{ color: '#6b7280' }}>Gio:</span><span style={{ fontWeight: 900, color: '#7c3aed', fontSize: 16 }}>{selectedSlot}</span></div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-              <div><div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Ho ten *</div><Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Nguyen Thi Lan" size="large" style={{ borderRadius: 12, fontSize: 15 }} /></div>
-              <div><div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>So dien thoai *</div><Input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} placeholder="0901234567" size="large" type="tel" style={{ borderRadius: 12, fontSize: 15 }} /></div>
-              <div><div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Ghi chu (tuy chon)</div><Input value={note} onChange={e => setNote(e.target.value)} placeholder="Yeu cau dac biet..." style={{ borderRadius: 12 }} /></div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setStep(2)} style={btnBack}>← Quay lai</button>
-              <button onClick={handleBook} disabled={submitting || !customerName.trim() || !customerPhone.trim()} style={{ ...btnPrimary, flex: 1, opacity: submitting || !customerName.trim() || !customerPhone.trim() ? 0.6 : 1 }}>{submitting ? '⏳ Dang dat...' : '✅ Xac nhan dat lich'}</button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 4 */}
-        {step === 4 && bookResult && (
-          <div style={{ textAlign: 'center', paddingTop: 20 }}>
-            <div style={{ width: 100, height: 100, borderRadius: '50%', margin: '0 auto 20px', background: 'linear-gradient(135deg,#7c3aed,#ec4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, boxShadow: '0 12px 40px rgba(124,58,237,0.4)' }}>🎉</div>
-            <h2 style={{ fontSize: 22, fontWeight: 900, color: '#1e1b4b', marginBottom: 8 }}>Dat lich thanh cong!</h2>
-            <p style={{ color: '#6b7280', fontSize: 14, marginBottom: 24 }}>Cam on ban da dat lich tai <strong style={{ color: '#7c3aed' }}>{shopName}</strong>!</p>
-            <div style={{ background: 'linear-gradient(135deg,#f5f3ff,#fdf4ff)', border: '1px solid #e9d5ff', borderRadius: 20, padding: '20px 24px', textAlign: 'left', marginBottom: 24 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed', marginBottom: 12 }}>📋 Chi tiet lich hen</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}><span style={{ color: '#6b7280' }}>Khach:</span><span style={{ fontWeight: 700 }}>{bookResult.customer_name}</span></div>
-                {bookResult.service_name && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}><span style={{ color: '#6b7280' }}>Dich vu:</span><span style={{ fontWeight: 600 }}>{bookResult.service_name}</span></div>}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}><span style={{ color: '#6b7280' }}>Tho:</span><span style={{ fontWeight: 600 }}>✂️ {bookResult.stylist_name}</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}><span style={{ color: '#6b7280' }}>Ngay:</span><span style={{ fontWeight: 600 }}>{dayjs(bookResult.date).format('ddd DD/MM/YYYY')}</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15 }}><span style={{ color: '#6b7280' }}>Gio:</span><span style={{ fontWeight: 900, color: '#7c3aed', fontSize: 20 }}>{bookResult.time}</span></div>
+            {/* THÔNG TIN */}
+            <div style={{ marginBottom: 28 }}>
+              <Divider title='Thông tin của bạn 👤' />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {[
+                  { label: 'HỌ TÊN *', val: customerName, set: setCustomerName, ph: 'Nguyễn Thị Lan', type: 'text' },
+                  { label: 'SỐ ĐIỆN THOẠI *', val: customerPhone, set: setCustomerPhone, ph: '0901 234 567', type: 'tel' },
+                  { label: 'GHI CHÚ', val: note, set: setNote, ph: 'Yêu cầu đặc biệt...', type: 'text' },
+                ].map(f => (
+                  <div key={f.label}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', marginBottom: 6, letterSpacing: 0.5 }}>{f.label}</div>
+                    <input type={f.type} value={f.val} onChange={e => f.set(e.target.value)} placeholder={f.ph} style={{ width: '100%', padding: '13px 16px', borderRadius: 14, fontSize: 15, background: 'rgba(255,255,255,0.07)', border: '1.5px solid rgba(255,255,255,0.12)', color: '#fff', outline: 'none', fontFamily: 'inherit' }} />
+                  </div>
+                ))}
               </div>
             </div>
-            {shopPhone && <a href={`tel:${shopPhone}`} style={{ display: 'block', background: '#fff', border: '1.5px solid #e9d5ff', borderRadius: 14, padding: '12px 20px', color: '#7c3aed', textDecoration: 'none', fontWeight: 700, fontSize: 14, marginBottom: 12 }}>📞 Goi tiem: {shopPhone}</a>}
-            <button onClick={() => { setStep(1); setSelectedService(null); setSelectedSlot(null); setCustomerName(''); setCustomerPhone(''); setNote(''); setBookResult(null) }} style={btnPrimary}>📅 Dat them lich</button>
-          </div>
+
+            {/* TÓM TẮT */}
+            {(selectedSvc || selectedSlot) && (
+              <div style={{ background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.3)', borderRadius: 16, padding: '14px 16px', marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa', marginBottom: 8 }}>📋 Tóm tắt lịch hẹn</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px' }}>
+                  {selectedSvc && <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>✂️ {selectedSvc.name}</span>}
+                  {selectedStylist && <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>👤 {stylists.find(s => s.id === selectedStylist)?.name}</span>}
+                  <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>📅 {dayjs(selectedDate).format('ddd DD/MM')}</span>
+                  {selectedSlot && <span style={{ fontSize: 14, fontWeight: 900, color: '#ec4899' }}>🕐 {selectedSlot}</span>}
+                </div>
+              </div>
+            )}
+
+            {/* NÚT ĐẶT LỊCH */}
+            <button onClick={handleBook} disabled={submitting || !canBook} style={{ width: '100%', height: 58, border: 'none', borderRadius: 18, background: canBook ? grad : 'rgba(255,255,255,0.08)', color: canBook ? '#fff' : 'rgba(255,255,255,0.3)', fontSize: 17, fontWeight: 800, cursor: canBook ? 'pointer' : 'not-allowed', boxShadow: canBook ? '0 8px 28px rgba(124,58,237,0.45)' : 'none', transition: 'all 0.3s' }}>
+              {submitting ? '⏳ Đang đặt lịch...' : canBook ? '✅ Xác nhận đặt lịch' : '⬆️ Chọn giờ & điền thông tin để đặt'}
+            </button>
+          </>
         )}
       </div>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap'); * { box-sizing: border-box; }`}</style>
     </div>
   )
 }
