@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Skeleton, Tag, message } from 'antd'
 import {
@@ -25,14 +25,10 @@ const fmtMoneyFull = (n) => Number(n||0).toLocaleString('vi-VN') + 'Ä‘'
 const fmtDate = (s) => dayjs(s).format('DD/MM')
 
 const STATUS_LABEL = {
-  pending:     { label: 'Chá» xÃ¡c nháº­n', color: '#d48806' },
-  confirmed:   { label: 'ÄÃ£ xÃ¡c nháº­n',  color: '#0958d9' },
-  in_progress: { label: 'Äang lÃ m',       color: '#531dab' },
+  pending:     { label: 'Chá»  xÃ¡c nháº­n', color: '#d48806' },
+  confirmed:   { label: 'Ä Ã£ xÃ¡c nháº­n',  color: '#0958d9' },
+  in_progress: { label: 'Ä ang lÃ m',       color: '#531dab' },
 }
-
-const fmtMoney = (n) => Number(n || 0).toLocaleString('vi-VN') + 'Ä‘'
-const fmtK = (n) => n >= 1000000 ? `${(n / 1000000).toFixed(1)}tr` : n >= 1000 ? `${(n / 1000).toFixed(0)}k` : String(n || 0)
-const fmtDate = (s) => dayjs(s).format('DD/MM')
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null
@@ -305,3 +301,4 @@ export default function Dashboard() {
       </>)}
     </div>
   )
+}
