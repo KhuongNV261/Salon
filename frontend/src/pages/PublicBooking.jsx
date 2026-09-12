@@ -86,7 +86,7 @@ export default function PublicBooking({ shopInfo }) {
         customer_name: customerName, customer_phone: customerPhone,
         stylist_id: selectedStylist || null, stylist_name: stylist?.name || null,
         service_id: selectedService || null, service_name: svc?.name || null,
-        appointment_time: `${selectedDate}T${selectedSlot}:00`,
+        appointment_time: dayjs(`${selectedDate}T${selectedSlot}:00`).format(),
         duration_minutes: settings.slot_interval, note: note || null,
       })
       setBookResult({ stylist_name: res.data.stylist_name || 'Sẽ phân công sau', service_name: svc?.name || '', date: selectedDate, time: selectedSlot, customer_name: customerName })

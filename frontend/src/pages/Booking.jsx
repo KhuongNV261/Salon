@@ -542,7 +542,7 @@ export default function Booking() {
   const handleMoveApt = async (aptId, newTime, stylistId, stylistName) => {
     try {
       await api.put(`/api/appointments/${aptId}`, {
-        appointment_time: newTime,
+        appointment_time: dayjs(newTime).format(),
         stylist_id: stylistId,
         stylist_name: stylistName,
       })
@@ -571,7 +571,7 @@ export default function Booking() {
         stylist_name: stylist?.name || null,
         service_id: selectedService || null,
         service_name: svc?.name || null,
-        appointment_time: `${selectedDate}T${selectedSlot}:00`,
+        appointment_time: dayjs(`${selectedDate}T${selectedSlot}:00`).format(),
         duration_minutes: shopSettings.slot_interval,
         note: note || null
       })
