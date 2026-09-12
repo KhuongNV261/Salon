@@ -25,6 +25,7 @@ import SuperAdminLogin from './pages/SuperAdminLogin'
 import SuperAdminDashboard from './pages/SuperAdminDashboard'
 import useStore from './store'
 import api from './api'
+import { getSlugFromSubdomain } from './slug'
 import 'antd/dist/reset.css'
 import './themes/themes.css'
 import './index.css'
@@ -70,14 +71,18 @@ const getMoreItems = (features = {}) => [
   { key: 'settings',  icon: <SettingOutlined />,   label: 'Cài đặt',           feature: 'settings' },
 ].filter(t => features[t.feature] !== false)
 
+// ─── Shop Context (slug + basePath) ────────────────────────
+const ShopContext = React.createContext({ slug: '', basePath: '' })
+const useShopContext = () => React.useContext(ShopContext)
+
 // ─── Guard: yêu cầu đăng nhập – nhớ URL gốc ───────────────
 function PrivateRoute({ children }) {
   const { user } = useStore()
-  const { slug } = useParams()
+  const { basePath } = useShopContext()
   const location = useLocation()
   if (!user) {
     // Lưu URL hiện tại vào state để Login biết redirect về đâu sau khi đăng nhập
-    return <Navigate to={`/${slug}/login`} state={{ from: location.pathname + location.search }} replace />
+    return <Navigate to={`${basePath}/login`} state={{ from: location.pathname + location.search }} replace />
   }
   return children
 }
@@ -256,16 +261,16 @@ function MobileLayout({ children, shopInfo }) {
   const { user, tenant, logout } = useStore()
   const navigate = useNavigate()
   const location = useLocation()
-  const { slug } = useParams()
+  const { slug, basePath } = useShopContext()
   const [moreOpen, setMoreOpen] = useState(false)
   const isOwnerOrManager = user?.role === 'owner' || user?.role === 'manager'
 
   const handleLogout = () => {
     logout()
-    navigate(`/${slug}/login`)
+    navigate(`${basePath}/login`)
   }
 
-  const currentPage = location.pathname.replace(`/${slug}`, '').replace(/^\//, '')
+  const currentPage = location.pathname.replace(basePath, '').replace(/^\//, '')
   const NAV_TABS = getNavTabs(user?.role, shopInfo?.features)
   const MORE_ITEMS = isOwnerOrManager ? getMoreItems(shopInfo?.features) : []
   const pageTitle = PAGE_TITLES[currentPage] ?? ''
@@ -314,7 +319,7 @@ function MobileLayout({ children, shopInfo }) {
           return (
             <Link
               key={tab.key}
-              to={`/${slug}/${tab.key}`}
+              to={`${basePath}/${tab.key}`}
               className={`tab-item ${active ? 'tab-active' : ''}`}
             >
               <span className="tab-icon">{tab.icon}</span>
@@ -342,7 +347,7 @@ function MobileLayout({ children, shopInfo }) {
                   return (
                     <Link
                       key={item.key}
-                      to={`/${slug}/${item.key}`}
+                      to={`${basePath}/${item.key}`}
                       onClick={() => setMoreOpen(false)}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 12,
@@ -377,8 +382,10 @@ function MobileLayout({ children, shopInfo }) {
 // ─── ShopLoader: resolve slug → shop info ──────────────────
 const VALID_THEMES = ['classic', 'nature', 'luxury', 'cute']
 
-function ShopLoader() {
-  const { slug } = useParams()
+function ShopLoader({ overrideSlug } = {}) {
+  const params = useParams()
+  const slug = overrideSlug ?? params.slug
+  const basePath = overrideSlug ? '' : `/${slug}`
   const [shopInfo, setShopInfo] = useState(null)
   const [notFound, setNotFound] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -449,6 +456,7 @@ function ShopLoader() {
   )
 
   return (
+    <ShopContext.Provider value={{ slug, basePath }}>
     <div ref={wrapperRef} data-theme={VALID_THEMES.includes(shopInfo?.theme) ? shopInfo.theme : 'classic'} style={{ minHeight: '100dvh' }}>
       <Routes>
         <Route path="login" element={<Login shopInfo={shopInfo} />} />
@@ -458,7 +466,7 @@ function ShopLoader() {
           <PrivateRoute>
             {isOwnerOrManager
               ? <MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}><POS /></MobileLayout>
-              : <Navigate to={`/${slug}/booking`} replace />
+              : <Navigate to={`${basePath}/booking`} replace />
             }
           </PrivateRoute>
         } />
@@ -507,14 +515,27 @@ function ShopLoader() {
           } />
         )}
 
-        <Route path="*" element={<Navigate to={`/${slug}/`} replace />} />
+        <Route path="*" element={<Navigate to={`${basePath}/`} replace />} />
       </Routes>
     </div>
+    </ShopContext.Provider>
   )
 }
 
 // ─── Root ───────────────────────────────────────────────────
 export default function App() {
+  const subdomainSlug = getSlugFromSubdomain()
+
+  // Subdomain mode: slug lấy từ domain, path sạch không có /:slug
+  if (subdomainSlug) {
+    return (
+      <Routes>
+        <Route path="/*" element={<ShopLoader overrideSlug={subdomainSlug} />} />
+      </Routes>
+    )
+  }
+
+  // Path mode (localhost / super admin)
   return (
     <Routes>
       <Route path="/" element={<RootRedirect />} />

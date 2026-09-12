@@ -141,9 +141,10 @@ export default function SuperAdminDashboard() {
   }
 
   const copyLink = (slug) => {
-    const link = `${window.location.origin}/${slug}/`
+    // Tạo link đăng nhập dạng subdomain: slug.khuong2601.io.vn/login
+    const link = `https://${slug}.khuong2601.io.vn/login`
     navigator.clipboard.writeText(link)
-    message.success('Đã copy link cửa hàng!')
+    message.success(`Đã copy: ${link}`)
   }
 
   const openFeaturesModal = (record) => {

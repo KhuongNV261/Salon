@@ -1,21 +1,27 @@
 @echo off
 echo ===================================================
-echo DANG DAY CODE TU MAY TINH CA NHAN LEN WEB...
+echo DANG DAY CODE LEN CLOUDFLARE WORKERS...
 echo ===================================================
 
 cd /d "%~dp0"
 
-echo [1/3] Them tat ca cac file da sua...
+echo [1/4] Build frontend...
+cd frontend
+call npm install
+call npm run build
+cd ..
+
+echo [2/4] Deploy len Cloudflare Workers...
+call npx wrangler deploy
+
+echo [3/4] Luu code len GitHub (de backup)...
 git add .
-
-echo [2/3] Luu lich su...
-git commit -m "Cap nhat tu nut day code"
-
-echo [3/3] Day len GitHub (Render va Vercel se tu dong cap nhat)...
+git commit -m "Cap nhat - %date% %time%"
 git push origin main
 
 echo ===================================================
-echo HOAN TAT! 
-echo Vercel va Render se tu dong cap nhat web trong 1-2 phut.
+echo HOAN TAT!
+echo Web da duoc cap nhat tai: https://khuong2601.io.vn
+echo Tiem toc: https://tiemtocthanhthanh.khuong2601.io.vn
 echo ===================================================
 pause
