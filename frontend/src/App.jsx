@@ -76,7 +76,27 @@ const getNavTabs = (role, features = {}, customRole = null, rolePermissions = {}
     )
   }
 
-  // Staff thường (không có custom_role): chỉ thấy booking
+  // Staff thường (không có custom_role): kiểm tra xem role hệ thống có được cấu hình không
+  const systemRolePerm = rolePermissions[role]
+  if (systemRolePerm) {
+    const allowedScreens = systemRolePerm.screens || []
+    return [
+      { key: '',          icon: <ShoppingCartOutlined />, label: 'Bán hàng',   feature: 'pos' },
+      { key: 'booking',   icon: <CalendarOutlined />,    label: 'Lịch hẹn',   feature: 'booking' },
+      { key: 'customers', icon: <UserOutlined />,        label: 'Khách hàng', feature: 'customers' },
+      { key: 'reports',   icon: <BarChartOutlined />,    label: 'Báo cáo',    feature: 'reports' },
+      { key: 'dashboard', icon: <DashboardOutlined />,   label: 'Tổng quan',  feature: 'dashboard' },
+      { key: 'expenses',  icon: <WalletOutlined />,      label: 'Chi phí',    feature: 'expenses' },
+      { key: 'products',  icon: <AppstoreOutlined />,    label: 'Dịch vụ',    feature: 'products' },
+      { key: 'inventory', icon: <InboxOutlined />,       label: 'Kho',         feature: 'inventory' },
+      { key: 'packages',  icon: <AppstoreOutlined />,    label: 'Gói',         feature: 'packages' },
+    ].filter(t =>
+      allowedScreens.includes(t.feature) &&
+      features[t.feature] !== false
+    )
+  }
+
+  // Fallback cuối: chỉ thấy booking
   return [
     { key: 'booking', icon: <CalendarOutlined />, label: 'Lịch hẹn', feature: 'booking' },
   ].filter(t => features[t.feature] !== false)

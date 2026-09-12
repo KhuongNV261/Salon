@@ -21,6 +21,13 @@ const ALL_SCREENS = [
   { key: 'packages',  label: '🎁 Gói dịch vụ',        desc: 'Gói thẻ khách hàng' },
 ]
 
+// ─── Vai trò hệ thống mặc định (luôn hiện, owner có thể sửa quyền) ──────────
+const SYSTEM_ROLES = [
+  { role_name: 'manager', label: 'Quản lý',   color: 'blue',   icon: '🧑‍💼', defaultScreens: ['pos','booking','customers','reports','dashboard','expenses','products','packages','inventory'] },
+  { role_name: 'staff',   label: 'Thợ',       color: 'green',  icon: '✂️',  defaultScreens: ['booking'] },
+  { role_name: 'cashier', label: 'Thu ngân',  color: 'cyan',   icon: '💰',  defaultScreens: ['pos','booking'] },
+]
+
 const COLOR_OPTIONS = [
   { value: 'blue',   label: 'Xanh dương', bg: '#1677ff' },
   { value: 'green',  label: 'Xanh lá',    bg: '#52c41a' },
@@ -35,8 +42,8 @@ const COLOR_OPTIONS = [
 // Lấy màu hex từ tên màu Ant Design
 const getColorHex = (color) => COLOR_OPTIONS.find(c => c.value === color)?.bg || '#1677ff'
 
-// ─── Card hiển thị 1 vai trò ───────────────────────────────
-function RoleCard({ perm, enabledFeatures, onEdit, onDelete }) {
+// ─── Card hiển thị 1 vai trò (dùng chung system + custom) ─────────────────
+function RoleCard({ perm, enabledFeatures, onEdit, onDelete, isSystem }) {
   const screenCount = perm.screens.filter(s => enabledFeatures[s] !== false).length
   const hex = getColorHex(perm.color)
 
@@ -55,21 +62,26 @@ function RoleCard({ perm, enabledFeatures, onEdit, onDelete }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Tag color={perm.color} style={{ fontWeight: 700, fontSize: 13, padding: '3px 12px', borderRadius: 20, margin: 0 }}>
-              {perm.label}
+              {perm.icon && <span style={{ marginRight: 4 }}>{perm.icon}</span>}{perm.label}
             </Tag>
-            <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: 'monospace' }}>{perm.role_name}</span>
+            {isSystem
+              ? <span style={{ fontSize: 11, color: '#667eea', background: '#f0f5ff', border: '1px solid #d6e4ff', borderRadius: 10, padding: '1px 8px' }}>Hệ thống</span>
+              : <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: 'monospace' }}>{perm.role_name}</span>
+            }
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={() => onEdit(perm)}
+            <button onClick={() => onEdit(perm, isSystem)}
               style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: 8, padding: '4px 8px', cursor: 'pointer', color: '#6b7280', fontSize: 13 }}>
-              <EditOutlined />
+              <EditOutlined /> Sửa
             </button>
-            <Popconfirm title={`Xóa vai trò "${perm.label}"?`} description="Nhân viên thuộc vai trò này sẽ mất quyền tùy chỉnh."
-              onConfirm={() => onDelete(perm.id)} okText="Xóa" cancelText="Hủy" okButtonProps={{ danger: true }}>
-              <button style={{ background: 'none', border: '1px solid #fecaca', borderRadius: 8, padding: '4px 8px', cursor: 'pointer', color: '#ef4444', fontSize: 13 }}>
-                <DeleteOutlined />
-              </button>
-            </Popconfirm>
+            {!isSystem && (
+              <Popconfirm title={`Xóa vai trò "${perm.label}"?`} description="Nhân viên thuộc vai trò này sẽ mất quyền tùy chỉnh."
+                onConfirm={() => onDelete(perm.id)} okText="Xóa" cancelText="Hủy" okButtonProps={{ danger: true }}>
+                <button style={{ background: 'none', border: '1px solid #fecaca', borderRadius: 8, padding: '4px 8px', cursor: 'pointer', color: '#ef4444', fontSize: 13 }}>
+                  <DeleteOutlined />
+                </button>
+              </Popconfirm>
+            )}
           </div>
         </div>
 
@@ -103,7 +115,7 @@ function RoleCard({ perm, enabledFeatures, onEdit, onDelete }) {
 }
 
 // ─── Modal thêm/sửa vai trò ────────────────────────────────
-function RoleModal({ open, onClose, onSave, editing, enabledFeatures }) {
+function RoleModal({ open, onClose, onSave, editing, enabledFeatures, isSystemEdit }) {
   const [form, setForm] = useState({ label: '', role_name: '', color: 'blue', screens: ['booking'] })
   const [loading, setLoading] = useState(false)
 
@@ -117,9 +129,10 @@ function RoleModal({ open, onClose, onSave, editing, enabledFeatures }) {
     }
   }, [open, editing])
 
-  // Auto-generate role_name từ label
+  // Auto-generate role_name từ label (chỉ khi tạo mới và không phải system role)
   const handleLabelChange = (val) => {
-    const rn = editing ? form.role_name : val.toLowerCase()
+    const isSystem = isSystemEdit || (editing && SYSTEM_ROLES.some(r => r.role_name === editing.role_name))
+    const rn = (editing || isSystem) ? form.role_name : val.toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/đ/g, 'd').replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '')
     setForm(f => ({ ...f, label: val, role_name: rn }))
@@ -157,14 +170,19 @@ function RoleModal({ open, onClose, onSave, editing, enabledFeatures }) {
         {/* Tên vai trò */}
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>Tên vai trò <span style={{ color: '#ef4444' }}>*</span></div>
-          <Input
-            value={form.label}
-            onChange={e => handleLabelChange(e.target.value)}
-            placeholder="VD: Thợ cắt, Gội đầu, Lễ tân..."
-            size="large"
-            disabled={!!editing}
-          />
-          {form.role_name && (
+          {isSystemEdit || (editing && SYSTEM_ROLES.some(r => r.role_name === editing.role_name))
+            ? <div style={{ padding: '8px 12px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 14, color: '#1e1b4b', fontWeight: 600 }}>
+                {form.label} <Tag color={form.color} style={{ marginLeft: 8 }}>Hệ thống</Tag>
+              </div>
+            : <Input
+                value={form.label}
+                onChange={e => handleLabelChange(e.target.value)}
+                placeholder="VD: Thợ cắt, Gội đầu, Lễ tân..."
+                size="large"
+                disabled={!!editing && !isSystemEdit}
+              />
+          }
+          {form.role_name && !isSystemEdit && !(editing && SYSTEM_ROLES.some(r => r.role_name === editing.role_name)) && (
             <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
               Key: <code style={{ background: '#f3f4f6', padding: '1px 6px', borderRadius: 4 }}>{form.role_name}</code>
             </div>
@@ -254,12 +272,12 @@ function RoleModal({ open, onClose, onSave, editing, enabledFeatures }) {
 
 // ─── Component chính ────────────────────────────────────────
 export default function Permissions({ shopInfo }) {
-  const [perms, setPerms] = useState([])
+  const [perms, setPerms] = useState([])    // vai trò từ DB
   const [loading, setLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [isSystemEdit, setIsSystemEdit] = useState(false)
 
-  // Tính năng super admin đã bật cho tiệm (ràng buộc phân quyền)
   const enabledFeatures = shopInfo?.features || {}
 
   const load = useCallback(async () => {
@@ -276,19 +294,27 @@ export default function Permissions({ shopInfo }) {
 
   useEffect(() => { load() }, [load])
 
-  const openCreate = () => { setEditing(null); setModalOpen(true) }
-  const openEdit   = (perm) => { setEditing(perm); setModalOpen(true) }
+  const openCreate = () => { setEditing(null); setIsSystemEdit(false); setModalOpen(true) }
+
+  // Edit một vai trò — system hoặc custom
+  const openEdit = (perm, isSystem = false) => {
+    setEditing(perm)
+    setIsSystemEdit(isSystem)
+    setModalOpen(true)
+  }
 
   const handleSave = async (form) => {
     try {
-      if (editing) {
+      if (editing && editing.id) {
+        // Cập nhật role đã có trong DB
         await api.put(`/api/role-permissions/${editing.id}`, {
           label: form.label, screens: form.screens, color: form.color
         })
-        message.success(`✅ Cập nhật vai trò "${form.label}" thành công!`)
+        message.success(`✅ Cập nhật "${form.label}" thành công!`)
       } else {
+        // Tạo mới (kể cả system role chưa có entry)
         await api.post('/api/role-permissions', form)
-        message.success(`✅ Tạo vai trò "${form.label}" thành công!`)
+        message.success(`✅ Lưu cấu hình "${form.label}" thành công!`)
       }
       load()
     } catch (e) {
@@ -307,8 +333,19 @@ export default function Permissions({ shopInfo }) {
     }
   }
 
-  // Màn hình nào super admin đã bật cho tiệm này
   const enabledScreens = ALL_SCREENS.filter(s => enabledFeatures[s.key] !== false)
+
+  // Tách: system roles (manager/staff/cashier) vs custom roles
+  const dbPermMap = Object.fromEntries(perms.map(p => [p.role_name, p]))
+  const customPerms = perms.filter(p => !SYSTEM_ROLES.some(sr => sr.role_name === p.role_name))
+
+  // Merge: system role lấy config từ DB nếu có, không thì dùng default
+  const systemRows = SYSTEM_ROLES.map(sr => {
+    const dbEntry = dbPermMap[sr.role_name]
+    return dbEntry
+      ? { ...dbEntry, icon: sr.icon, _fromDB: true }
+      : { ...sr, screens: sr.defaultScreens, id: null, _fromDB: false }
+  })
 
   return (
     <div>
@@ -320,10 +357,9 @@ export default function Permissions({ shopInfo }) {
       }}>
         <span style={{ fontSize: 22, flexShrink: 0 }}>🔐</span>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 13, color: '#1e1b4b', marginBottom: 2 }}>Phân quyền theo vai trò nghề nghiệp</div>
+          <div style={{ fontWeight: 700, fontSize: 13, color: '#1e1b4b', marginBottom: 2 }}>Phân quyền theo vai trò</div>
           <div style={{ fontSize: 12, color: '#6b7280', lineHeight: 1.5 }}>
-            Tạo các vai trò (thợ cắt, gội đầu, lễ tân...) và chọn màn hình nào họ được xem.
-            Chỉ có thể phân quyền các tính năng <strong>super admin đã kích hoạt</strong> cho tiệm bạn.
+            Cấu hình màn hình từng vai trò được xem. Chỉ trong phạm vi tính năng <strong>super admin đã kích hoạt</strong>.
           </div>
         </div>
       </div>
@@ -353,59 +389,85 @@ export default function Permissions({ shopInfo }) {
         </div>
       </div>
 
-      {/* Nút thêm vai trò */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ fontSize: 13, color: '#6b7280', fontWeight: 500 }}>
-          {loading ? 'Đang tải...' : `${perms.length} vai trò đã tạo`}
+      {/* ── SECTION 1: Vai trò hệ thống ── */}
+      <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b' }}>🏢 Vai trò hệ thống</div>
+        <div style={{ fontSize: 11, color: '#9ca3af', background: '#f3f4f6', borderRadius: 8, padding: '2px 8px' }}>Luôn tồn tại · Có thể sửa quyền</div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+        {systemRows.map(sr => (
+          <div key={sr.role_name} style={{ position: 'relative' }}>
+            <RoleCard
+              perm={sr}
+              enabledFeatures={enabledFeatures}
+              onEdit={() => openEdit(sr, true)}
+              onDelete={null}
+              isSystem={true}
+            />
+            {!sr._fromDB && (
+              <div style={{
+                position: 'absolute', top: 12, right: 60,
+                fontSize: 11, color: '#9ca3af', background: '#f9fafb',
+                border: '1px dashed #d1d5db', borderRadius: 8, padding: '2px 8px'
+              }}>Mặc định · Nhấn Sửa để tuỳ chỉnh</div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* ── SECTION 2: Vai trò tùy chỉnh ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#1e1b4b' }}>✨ Vai trò tùy chỉnh</div>
+          <div style={{ fontSize: 11, color: '#9ca3af', background: '#f3f4f6', borderRadius: 8, padding: '2px 8px' }}>{customPerms.length} đã tạo</div>
         </div>
         <button onClick={openCreate} style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', border: 'none', borderRadius: 10,
+          display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 10,
           background: 'linear-gradient(135deg,#667eea,#764ba2)', color: '#fff', fontWeight: 700, fontSize: 13,
-          cursor: 'pointer', boxShadow: '0 4px 14px rgba(102,126,234,0.4)'
+          cursor: 'pointer', boxShadow: '0 4px 14px rgba(102,126,234,0.3)'
         }}>
-          <PlusOutlined /> Thêm vai trò mới
+          <PlusOutlined /> Thêm vai trò
         </button>
       </div>
 
-      {/* List vai trò */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40 }}><Spin size="large" /></div>
-      ) : perms.length === 0 ? (
+      ) : customPerms.length === 0 ? (
         <div style={{
-          textAlign: 'center', padding: '40px 20px', background: '#fafafa',
+          textAlign: 'center', padding: '28px 20px', background: '#fafafa',
           borderRadius: 16, border: '2px dashed #e5e7eb', color: '#9ca3af'
         }}>
-          <div style={{ fontSize: 40, marginBottom: 10 }}>👥</div>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>Chưa có vai trò nào</div>
-          <div style={{ fontSize: 13 }}>Thêm vai trò đầu tiên để phân quyền cho nhân viên</div>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🎨</div>
+          <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 13 }}>Chưa có vai trò tùy chỉnh</div>
+          <div style={{ fontSize: 12 }}>VD: Thợ cắt chuyên, Gội đầu, Lễ tân...</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {perms.map(p => (
-            <RoleCard key={p.id} perm={p} enabledFeatures={enabledFeatures} onEdit={openEdit} onDelete={handleDelete} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {customPerms.map(p => (
+            <RoleCard key={p.id} perm={p} enabledFeatures={enabledFeatures}
+              onEdit={() => openEdit(p, false)} onDelete={handleDelete} isSystem={false} />
           ))}
         </div>
       )}
 
       {/* Tip gán vai trò */}
-      {perms.length > 0 && (
-        <div style={{
-          marginTop: 16, padding: '12px 16px', background: 'linear-gradient(135deg,#fff7e6,#fffbe6)',
-          border: '1px solid #ffd591', borderRadius: 12,
-          fontSize: 12, color: '#854d0e', display: 'flex', gap: 8
-        }}>
-          <span style={{ fontSize: 16 }}>💡</span>
-          <div>
-            <b>Gán vai trò cho nhân viên:</b> Vào trang <strong>Nhân viên</strong> → Sửa nhân viên →
-            chọn <strong>"Vai trò nghề nghiệp"</strong> để áp dụng phân quyền.
-          </div>
+      <div style={{
+        marginTop: 16, padding: '12px 16px', background: 'linear-gradient(135deg,#fff7e6,#fffbe6)',
+        border: '1px solid #ffd591', borderRadius: 12,
+        fontSize: 12, color: '#854d0e', display: 'flex', gap: 8
+      }}>
+        <span style={{ fontSize: 16 }}>💡</span>
+        <div>
+          <b>Vai trò hệ thống</b> áp dụng cho tất cả nhân viên có vai trò đó.
+          <b style={{ marginLeft: 4 }}>Vai trò tùy chỉnh</b> cần gán riêng trong trang <strong>Nhân viên</strong>.
         </div>
-      )}
+      </div>
 
       <RoleModal
         open={modalOpen} onClose={() => setModalOpen(false)}
         onSave={handleSave} editing={editing}
         enabledFeatures={enabledFeatures}
+        isSystemEdit={isSystemEdit}
       />
     </div>
   )
