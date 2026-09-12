@@ -34,15 +34,23 @@ export default function Staff() {
   const [dateRange, setDateRange] = useState([dayjs().startOf('month'), dayjs()])
   const [avatarPreview, setAvatarPreview] = useState(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [roleOptions, setRoleOptions] = useState([])  // vai trò nghề nghiệp từ role_permissions
   const [form] = Form.useForm()
   const screens = useBreakpoint()
   const isMobile = !screens.md
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(); loadRoles() }, [])
 
   const load = async () => {
     const res = await api.get('/api/staff')
     setStaff(res.data)
+  }
+
+  const loadRoles = async () => {
+    try {
+      const res = await api.get('/api/role-permissions')
+      setRoleOptions(res.data)
+    } catch {} // Không phải owner thì sẽ bị 403, ignore
   }
 
   const openModal = (record = null) => {
@@ -53,10 +61,11 @@ export default function Staff() {
       form.setFieldsValue({
         name: record.name, phone: record.phone,
         role: record.role, commission_rate: record.commission_rate,
-        is_active: record.is_active
+        is_active: record.is_active,
+        custom_role: record.custom_role || null
       })
     } else {
-      form.setFieldsValue({ role: 'staff', commission_rate: 0, is_active: true })
+      form.setFieldsValue({ role: 'staff', commission_rate: 0, is_active: true, custom_role: null })
     }
     setModal(true)
   }
@@ -442,7 +451,7 @@ export default function Staff() {
           )}
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="role" label="Vai trò">
+              <Form.Item name="role" label="Vai trò hệ thống">
                 <Select
                   style={{ width: '100%' }}
                   options={Object.entries(ROLE_LABELS).map(([v, info]) => ({ value: v, label: info.label }))}
@@ -455,6 +464,34 @@ export default function Staff() {
               </Form.Item>
             </Col>
           </Row>
+
+          {/* Vai trò nghề nghiệp - phân quyền màn hình */}
+          {roleOptions.length > 0 && (
+            <Form.Item
+              name="custom_role"
+              label="Vai trò nghề nghiệp"
+              extra="Xác định màn hình nhân viên này được xem"
+            >
+              <Select
+                style={{ width: '100%' }}
+                placeholder="— Mặc định (chỉ thấy Lịch hẹn) —"
+                allowClear
+                options={[
+                  { value: null, label: '— Mặc định (chỉ thấy Lịch hẹn) —' },
+                  ...roleOptions.map(r => ({
+                    value: r.role_name,
+                    label: (
+                      <span>
+                        <Tag color={r.color} style={{ marginRight: 6, fontSize: 11 }}>{r.label}</Tag>
+                        <span style={{ fontSize: 12, color: '#9ca3af' }}>({r.screens.length} màn hình)</span>
+                      </span>
+                    )
+                  }))
+                ]}
+              />
+            </Form.Item>
+          )}
+
           <Form.Item name="is_active" label="Trạng thái" valuePropName="checked">
             <Switch checkedChildren="Đang làm việc" unCheckedChildren="Nghỉ việc" />
           </Form.Item>

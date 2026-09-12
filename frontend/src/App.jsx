@@ -45,18 +45,40 @@ const PAGE_TITLES = {
   'settings':  '⚙️ Cài đặt',
 }
 
-// ─── Tab bar cốt lõi (4 tab) ───────────────────────────────
-const getNavTabs = (role, features = {}) => {
-  if (role !== 'owner' && role !== 'manager') {
+// ─── Tab bar cốt lõi (4 tab) ──────────────────────────────────────────────
+const getNavTabs = (role, features = {}, customRole = null, rolePermissions = {}) => {
+  // Owner/Manager: full nav (filter theo features)
+  if (role === 'owner' || role === 'manager') {
     return [
-      { key: 'booking', icon: <CalendarOutlined />, label: 'Lịch hẹn', feature: 'booking' },
+      { key: '',          icon: <ShoppingCartOutlined />, label: 'Bán hàng',  feature: 'pos' },
+      { key: 'booking',   icon: <CalendarOutlined />,    label: 'Lịch hẹn',  feature: 'booking' },
+      { key: 'customers', icon: <UserOutlined />,        label: 'Khách',     feature: 'customers' },
+      { key: 'reports',   icon: <BarChartOutlined />,    label: 'Báo cáo',   feature: 'reports' },
     ].filter(t => features[t.feature] !== false)
   }
+
+  // Staff có custom_role: lấy screens từ role_permissions, giao với features được bật
+  if (customRole && rolePermissions[customRole]) {
+    const allowedScreens = rolePermissions[customRole].screens || []
+    return [
+      { key: '',          icon: <ShoppingCartOutlined />, label: 'Bán hàng',   feature: 'pos' },
+      { key: 'booking',   icon: <CalendarOutlined />,    label: 'Lịch hẹn',   feature: 'booking' },
+      { key: 'customers', icon: <UserOutlined />,        label: 'Khách hàng', feature: 'customers' },
+      { key: 'reports',   icon: <BarChartOutlined />,    label: 'Báo cáo',    feature: 'reports' },
+      { key: 'dashboard', icon: <DashboardOutlined />,   label: 'Tổng quan',  feature: 'dashboard' },
+      { key: 'expenses',  icon: <WalletOutlined />,      label: 'Chi phí',    feature: 'expenses' },
+      { key: 'products',  icon: <AppstoreOutlined />,    label: 'Dịch vụ',    feature: 'products' },
+      { key: 'inventory', icon: <InboxOutlined />,       label: 'Kho',         feature: 'inventory' },
+      { key: 'packages',  icon: <AppstoreOutlined />,    label: 'Gói',         feature: 'packages' },
+    ].filter(t =>
+      allowedScreens.includes(t.feature) &&   // phải được owner cho phép
+      features[t.feature] !== false            // và super admin phải bật
+    )
+  }
+
+  // Staff thường (không có custom_role): chỉ thấy booking
   return [
-    { key: '',          icon: <ShoppingCartOutlined />, label: 'Bán hàng',  feature: 'pos' },
-    { key: 'booking',   icon: <CalendarOutlined />,    label: 'Lịch hẹn',  feature: 'booking' },
-    { key: 'customers', icon: <UserOutlined />,        label: 'Khách',     feature: 'customers' },
-    { key: 'reports',   icon: <BarChartOutlined />,    label: 'Báo cáo',   feature: 'reports' },
+    { key: 'booking', icon: <CalendarOutlined />, label: 'Lịch hẹn', feature: 'booking' },
   ].filter(t => features[t.feature] !== false)
 }
 
@@ -271,7 +293,7 @@ function MobileLayout({ children, shopInfo }) {
   }
 
   const currentPage = location.pathname.replace(basePath, '').replace(/^\//, '')
-  const NAV_TABS = getNavTabs(user?.role, shopInfo?.features)
+  const NAV_TABS = getNavTabs(user?.role, shopInfo?.features, user?.custom_role, shopInfo?.role_permissions)
   const MORE_ITEMS = isOwnerOrManager ? getMoreItems(shopInfo?.features) : []
   const pageTitle = PAGE_TITLES[currentPage] ?? ''
   const moreActive = MORE_ITEMS.some(m => m.key === currentPage)
@@ -509,7 +531,7 @@ function ShopLoader({ overrideSlug } = {}) {
           <Route path="settings" element={
             <PrivateRoute>
               <MobileLayout shopInfo={shopInfo} setShopInfo={setShopInfo}>
-                <Settings setShopInfo={setShopInfo} />
+                <Settings setShopInfo={setShopInfo} shopInfo={shopInfo} />
               </MobileLayout>
             </PrivateRoute>
           } />

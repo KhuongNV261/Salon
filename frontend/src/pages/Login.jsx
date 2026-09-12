@@ -26,7 +26,7 @@ export default function Login({ shopInfo }) {
       localStorage.setItem('token', res.data.access_token)
       localStorage.setItem('tenant_id', shopInfo.tenant_id)
       setAuth(
-        { name: res.data.user_name, role: res.data.user_role },
+        { name: res.data.user_name, role: res.data.user_role, custom_role: res.data.user_custom_role || null },
         { name: res.data.tenant_name, id: shopInfo.tenant_id, slug: slug }
       )
       message.success(`Chào mừng ${res.data.user_name}!`)

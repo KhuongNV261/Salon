@@ -4,6 +4,7 @@ import { LockOutlined, EyeInvisibleOutlined, EyeTwoTone, CheckCircleFilled } fro
 import api from '../api'
 import useStore from '../store'
 import dayjs from 'dayjs'
+import Permissions from './Permissions'
 
 const INTERVAL_OPTIONS = [
   { value: 15, label: '15 phút' },
@@ -151,11 +152,12 @@ function ChangePasswordModal({ open, onClose }) {
   )
 }
 
-export default function Settings({ setShopInfo }) {
+export default function Settings({ setShopInfo, shopInfo }) {
   const { user } = useStore()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [pwdOpen, setPwdOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState('settings')
   const [form, setForm] = useState({
     name: '', address: '', phone: '',
     open_time: '08:00', close_time: '20:00', slot_interval: 30,
@@ -204,15 +206,38 @@ export default function Settings({ setShopInfo }) {
 
   if (loading) return <div style={{ padding: 16 }}><Skeleton active paragraph={{ rows: 10 }} /></div>
 
+  const tabs = [
+    { key: 'settings',    label: '⚙️ Cài đặt' },
+    ...(user?.role === 'owner' ? [{ key: 'permissions', label: '🔐 Phân quyền' }] : []),
+  ]
+
   return (
     <div style={{ padding: '14px 14px 80px', background: '#f8f9fe', minHeight: '100%' }}>
 
+      {/* ── Tab bar ── */}
       <div style={{ marginBottom: 18 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: '#1e1b4b' }}>⚙️ Cài đặt tiệm</div>
-        <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 3 }}>
-          {canEdit ? 'Chỉnh sửa thông tin và cài đặt tiệm' : 'Chỉ owner mới chỉnh sửa được'}
+        <div style={{ fontSize: 18, fontWeight: 800, color: '#1e1b4b', marginBottom: 12 }}>⚙️ Cài đặt tiệm</div>
+        <div style={{ display: 'flex', background: '#f0f0f7', borderRadius: 12, padding: 4, gap: 4 }}>
+          {tabs.map(t => (
+            <button key={t.key} onClick={() => setActiveTab(t.key)} style={{
+              flex: 1, padding: '9px 12px', border: 'none', borderRadius: 10, cursor: 'pointer',
+              background: activeTab === t.key ? '#fff' : 'transparent',
+              color: activeTab === t.key ? '#667eea' : '#6b7280',
+              fontWeight: activeTab === t.key ? 700 : 500, fontSize: 13,
+              boxShadow: activeTab === t.key ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+              transition: 'all 0.2s',
+            }}>{t.label}</button>
+          ))}
         </div>
       </div>
+
+      {/* ── Tab: Phân quyền ── */}
+      {activeTab === 'permissions' && user?.role === 'owner' && (
+        <Permissions shopInfo={shopInfo} />
+      )}
+
+      {/* ── Tab: Cài đặt ── */}
+      {activeTab === 'settings' && (<>
 
       {/* ── Thông tin tiệm ── */}
       <SettingGroup icon="🏪" title="Thông tin tiệm" subtitle="Tên và địa chỉ hiển thị với khách">
@@ -339,6 +364,7 @@ export default function Settings({ setShopInfo }) {
 
       {/* Modal đổi mật khẩu */}
       <ChangePasswordModal open={pwdOpen} onClose={() => setPwdOpen(false)} />
+      </>)}
     </div>
   )
 }

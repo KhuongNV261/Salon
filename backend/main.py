@@ -70,6 +70,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     notify_upcoming = Column(Boolean, default=False, server_default='false')
     avatar_url = Column(Text, nullable=True)  # ảnh đại diện thợ (base64 hoặc URL)
+    custom_role = Column(String(100), nullable=True)  # vai trò nghề nghiệp: "tho_cat", "goi_dau"...
     last_login_at = Column(DateTime(timezone=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -317,6 +318,17 @@ class CommissionRecord(Base):
     commission_amount = Column(Numeric(12, 0), default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+class RolePermission(Base):
+    """Cấu hình phân quyền màn hình theo vai trò nghề nghiệp"""
+    __tablename__ = "role_permissions"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
+    role_name = Column(String(50), nullable=False)   # key: "tho_cat", "goi_dau", "le_tan"
+    label = Column(String(100), nullable=False)       # hiển thị: "Thợ cắt tóc"
+    screens = Column(Text, default='["booking"]')    # JSON array các màn hình được phép
+    color = Column(String(20), default='blue')        # màu tag: blue, green, purple, orange
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
 
 def get_db():
     return Session()
@@ -390,6 +402,7 @@ def login():
             "token_type": "bearer",
             "user_name": user.name,
             "user_role": user.role,
+            "user_custom_role": user.custom_role or None,
             "tenant_name": tenant.name if tenant else "",
             "tenant_slug": tenant.slug if tenant else "",
         })
@@ -614,6 +627,18 @@ def public_get_shop(slug):
         t = db.query(Tenant).filter(Tenant.slug == slug, Tenant.status == 'active').first()
         if not t: return err("Không tìm thấy tiệm", 404)
         settings = t.settings or {}
+        # Lấy cấu hình phân quyền vai trò
+        import json as _json
+        role_perms = db.query(RolePermission).filter(RolePermission.tenant_id == t.id).all()
+        role_perm_map = {}
+        for rp in role_perms:
+            try:
+                screens = _json.loads(rp.screens or '[]')
+            except:
+                screens = ["booking"]
+            role_perm_map[rp.role_name] = {
+                "label": rp.label, "screens": screens, "color": rp.color or "blue"
+            }
         return ok({
             "tenant_id": str(t.id),
             "name": t.name,
@@ -624,6 +649,7 @@ def public_get_shop(slug):
             "theme": settings.get("theme", "classic"),
             "features": t.features or {},
             "max_staff": t.max_staff if t.max_staff is not None else 10,
+            "role_permissions": role_perm_map,
         })
     finally:
         db.close()
@@ -1306,6 +1332,7 @@ def list_staff():
             "role": u.role, "commission_rate": float(u.commission_rate or 0),
             "is_active": u.is_active,
             "avatar_url": u.avatar_url or None,
+            "custom_role": u.custom_role or None,
             "notify_upcoming": bool(u.notify_upcoming),
             "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None
         } for u in users])
@@ -1358,6 +1385,7 @@ def update_staff(user_id):
         if "is_active" in d: u.is_active = d["is_active"]
         if "notify_upcoming" in d: u.notify_upcoming = bool(d["notify_upcoming"])
         if "avatar_url" in d: u.avatar_url = d["avatar_url"]
+        if "custom_role" in d: u.custom_role = d["custom_role"] or None
         if d.get("password"): u.password_hash = generate_password_hash(d["password"])
         db.commit()
         return ok({"message": "Cập nhật thành công"})
@@ -1499,6 +1527,99 @@ def toggle_staff_notify(user_id):
     finally:
         db.close()
 
+
+# ===== ROLE PERMISSIONS (Phân quyền vai trò) =====
+
+@app.get("/api/role-permissions")
+@jwt_required()
+def list_role_permissions():
+    """Liệt kê các vai trò và quyền màn hình của tiệm"""
+    _, tenant_id, role = current_user_info()
+    if role not in ("owner", "manager"): return err("Không có quyền", 403)
+    import json as _json
+    db = get_db()
+    try:
+        perms = db.query(RolePermission).filter(RolePermission.tenant_id == tenant_id).order_by(RolePermission.id).all()
+        result = []
+        for p in perms:
+            try:
+                screens = _json.loads(p.screens or '[]')
+            except:
+                screens = ["booking"]
+            result.append({
+                "id": p.id, "role_name": p.role_name, "label": p.label,
+                "screens": screens, "color": p.color or "blue"
+            })
+        return ok(result)
+    finally:
+        db.close()
+
+@app.post("/api/role-permissions")
+@jwt_required()
+def create_role_permission():
+    """Tạo vai trò mới và danh sách màn hình được phép"""
+    _, tenant_id, role = current_user_info()
+    if role != "owner": return err("Chỉ chủ tiệm mới có quyền", 403)
+    import json as _json
+    d = request.json
+    db = get_db()
+    try:
+        # Kiểm tra trùng tên vai trò
+        existing = db.query(RolePermission).filter(
+            RolePermission.tenant_id == tenant_id,
+            RolePermission.role_name == d.get("role_name", "")
+        ).first()
+        if existing: return err("Tên vai trò đã tồn tại", 400)
+        p = RolePermission(
+            tenant_id=tenant_id,
+            role_name=d.get("role_name", "").strip().lower().replace(" ", "_"),
+            label=d.get("label", "").strip(),
+            screens=_json.dumps(d.get("screens", ["booking"])),
+            color=d.get("color", "blue")
+        )
+        db.add(p)
+        db.commit()
+        return ok({"id": p.id, "message": "Tạo vai trò thành công"})
+    finally:
+        db.close()
+
+@app.put("/api/role-permissions/<int:perm_id>")
+@jwt_required()
+def update_role_permission(perm_id):
+    """Cập nhật quyền màn hình cho vai trò"""
+    _, tenant_id, role = current_user_info()
+    if role != "owner": return err("Chỉ chủ tiệm mới có quyền", 403)
+    import json as _json
+    d = request.json
+    db = get_db()
+    try:
+        p = db.query(RolePermission).filter(RolePermission.id == perm_id, RolePermission.tenant_id == tenant_id).first()
+        if not p: return err("Không tìm thấy vai trò", 404)
+        if "label" in d: p.label = d["label"].strip()
+        if "screens" in d: p.screens = _json.dumps(d["screens"])
+        if "color" in d: p.color = d["color"]
+        db.commit()
+        return ok({"message": "Cập nhật thành công"})
+    finally:
+        db.close()
+
+@app.delete("/api/role-permissions/<int:perm_id>")
+@jwt_required()
+def delete_role_permission(perm_id):
+    """Xóa vai trò"""
+    _, tenant_id, role = current_user_info()
+    if role != "owner": return err("Chỉ chủ tiệm mới có quyền", 403)
+    db = get_db()
+    try:
+        p = db.query(RolePermission).filter(RolePermission.id == perm_id, RolePermission.tenant_id == tenant_id).first()
+        if not p: return err("Không tìm thấy vai trò", 404)
+        # Reset custom_role của các nhân viên đang dùng vai trò này
+        db.query(User).filter(User.tenant_id == tenant_id, User.custom_role == p.role_name).update({"custom_role": None})
+        db.delete(p)
+        db.commit()
+        return ok({"message": "Xóa vai trò thành công"})
+    finally:
+        db.close()
 
 
 # ===== APPOINTMENTS =====
@@ -2993,6 +3114,8 @@ def run_migration():
             "ALTER TABLE order_items ADD COLUMN IF NOT EXISTS commission_assist_amount NUMERIC(12,0) DEFAULT 0",
             # avatar thợ
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT",
+            # vai trò nghề nghiệp
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS custom_role VARCHAR(100)",
         ]
         with engine.connect() as conn:
             for stmt in alter_stmts:
