@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import {
-  message, Modal, Input, Select, Tag, Popconfirm, Spin, Tooltip
+  message, Modal, Drawer, Input, Select, Tag, Popconfirm, Spin, Tooltip, Grid
 } from 'antd'
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, LockOutlined,
-  CheckOutlined, UserOutlined
+  CheckOutlined
 } from '@ant-design/icons'
 import api from '../api'
+
+const { useBreakpoint } = Grid
 
 // ─── Danh sách TẤT CẢ màn hình có thể phân quyền ──────────
 const ALL_SCREENS = [
@@ -160,112 +162,131 @@ function RoleModal({ open, onClose, onSave, editing, enabledFeatures, isSystemEd
   // Màn hình super admin đã bật cho tiệm này
   const availableScreens = ALL_SCREENS.filter(s => enabledFeatures[s.key] !== false)
 
-  return (
-    <Modal
-      open={open} onCancel={onClose} footer={null}
-      title={<span style={{ fontWeight: 700, color: '#1e1b4b' }}>{editing ? '✏️ Sửa vai trò' : '➕ Tạo vai trò mới'}</span>}
-      width={520} centered
-    >
-      <div style={{ padding: '8px 0' }}>
-        {/* Tên vai trò */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>Tên vai trò <span style={{ color: '#ef4444' }}>*</span></div>
-          {isSystemEdit || (editing && SYSTEM_ROLES.some(r => r.role_name === editing.role_name))
-            ? <div style={{ padding: '8px 12px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 14, color: '#1e1b4b', fontWeight: 600 }}>
-                {form.label} <Tag color={form.color} style={{ marginLeft: 8 }}>Hệ thống</Tag>
-              </div>
-            : <Input
-                value={form.label}
-                onChange={e => handleLabelChange(e.target.value)}
-                placeholder="VD: Thợ cắt, Gội đầu, Lễ tân..."
-                size="large"
-                disabled={!!editing && !isSystemEdit}
-              />
-          }
-          {form.role_name && !isSystemEdit && !(editing && SYSTEM_ROLES.some(r => r.role_name === editing.role_name)) && (
-            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
-              Key: <code style={{ background: '#f3f4f6', padding: '1px 6px', borderRadius: 4 }}>{form.role_name}</code>
+  const screens = useBreakpoint()
+  const isMobile = !screens.md
+
+  const title = <span style={{ fontWeight: 700, color: '#1e1b4b' }}>{editing ? '✏️ Sửa vai trò' : '➕ Tạo vai trò mới'}</span>
+
+  const body = (
+    <div style={{ padding: isMobile ? '0 0 24px' : '8px 0' }}>
+      {/* Tên vai trò */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>Tên vai trò <span style={{ color: '#ef4444' }}>*</span></div>
+        {isSystemEdit || (editing && SYSTEM_ROLES.some(r => r.role_name === editing.role_name))
+          ? <div style={{ padding: '8px 12px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 14, color: '#1e1b4b', fontWeight: 600 }}>
+              {form.label} <Tag color={form.color} style={{ marginLeft: 8 }}>Hệ thống</Tag>
             </div>
-          )}
-        </div>
-
-        {/* Màu */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>Màu nhận diện</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {COLOR_OPTIONS.map(c => (
-              <div key={c.value} onClick={() => setForm(f => ({ ...f, color: c.value }))}
-                style={{
-                  width: 32, height: 32, borderRadius: '50%', background: c.bg, cursor: 'pointer',
-                  border: form.color === c.value ? `3px solid #1e1b4b` : '3px solid transparent',
-                  boxShadow: form.color === c.value ? `0 0 0 2px ${c.bg}55` : 'none',
-                  transition: 'all 0.15s',
-                }}
-                title={c.label}
-              />
-            ))}
+          : <Input
+              value={form.label}
+              onChange={e => handleLabelChange(e.target.value)}
+              placeholder="VD: Thợ cắt, Gội đầu, Lễ tân..."
+              size="large"
+              disabled={!!editing && !isSystemEdit}
+            />
+        }
+        {form.role_name && !isSystemEdit && !(editing && SYSTEM_ROLES.some(r => r.role_name === editing.role_name)) && (
+          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+            Key: <code style={{ background: '#f3f4f6', padding: '1px 6px', borderRadius: 4 }}>{form.role_name}</code>
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* Phân quyền màn hình */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Màn hình được phép truy cập</div>
-          <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <LockOutlined />
-            Chỉ hiển thị các tính năng super admin đã bật cho tiệm bạn
-          </div>
-          {availableScreens.length === 0 ? (
-            <div style={{ textAlign: 'center', color: '#ccc', padding: 24 }}>Chưa có tính năng nào được kích hoạt</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {availableScreens.map(s => {
-                const active = form.screens.includes(s.key)
-                const hex = getColorHex(form.color)
-                return (
-                  <div key={s.key} onClick={() => toggleScreen(s.key)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
-                      borderRadius: 12, cursor: 'pointer',
-                      background: active ? `${hex}10` : '#f9fafb',
-                      border: `1.5px solid ${active ? hex + '55' : '#e5e7eb'}`,
-                      transition: 'all 0.15s',
-                    }}>
-                    {/* Toggle */}
-                    <div style={{
-                      width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-                      background: active ? hex : '#e5e7eb',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'all 0.15s',
-                    }}>
-                      {active && <CheckOutlined style={{ fontSize: 11, color: '#fff' }} />}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? '#1e1b4b' : '#6b7280' }}>{s.label}</div>
-                      <div style={{ fontSize: 11, color: '#9ca3af' }}>{s.desc}</div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Buttons */}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} style={{
-            flex: 1, height: 44, border: '1.5px solid #e5e7eb', borderRadius: 12,
-            background: '#fff', color: '#6b7280', fontSize: 14, fontWeight: 600, cursor: 'pointer'
-          }}>Hủy</button>
-          <button onClick={handleSave} disabled={loading} style={{
-            flex: 2, height: 44, border: 'none', borderRadius: 12,
-            background: loading ? '#e2e8f0' : 'linear-gradient(135deg,#667eea,#764ba2)',
-            color: loading ? '#94a3b8' : '#fff', fontSize: 14, fontWeight: 700, cursor: loading ? 'wait' : 'pointer',
-            boxShadow: loading ? 'none' : '0 4px 16px rgba(102,126,234,0.4)'
-          }}>
-            {loading ? <Spin size="small" /> : (editing ? '💾 Lưu thay đổi' : '✅ Tạo vai trò')}
-          </button>
+      {/* Màu */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 6 }}>Màu nhận diện</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {COLOR_OPTIONS.map(c => (
+            <div key={c.value} onClick={() => setForm(f => ({ ...f, color: c.value }))}
+              style={{
+                width: 32, height: 32, borderRadius: '50%', background: c.bg, cursor: 'pointer',
+                border: form.color === c.value ? `3px solid #1e1b4b` : '3px solid transparent',
+                boxShadow: form.color === c.value ? `0 0 0 2px ${c.bg}55` : 'none',
+                transition: 'all 0.15s',
+              }}
+              title={c.label}
+            />
+          ))}
         </div>
       </div>
+
+      {/* Phân quyền màn hình */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', marginBottom: 4 }}>Màn hình được phép truy cập</div>
+        <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <LockOutlined />
+          Chỉ hiển thị các tính năng super admin đã bật cho tiệm bạn
+        </div>
+        {availableScreens.length === 0 ? (
+          <div style={{ textAlign: 'center', color: '#ccc', padding: 24 }}>Chưa có tính năng nào được kích hoạt</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {availableScreens.map(s => {
+              const active = form.screens.includes(s.key)
+              const hex = getColorHex(form.color)
+              return (
+                <div key={s.key} onClick={() => toggleScreen(s.key)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+                    borderRadius: 12, cursor: 'pointer',
+                    background: active ? `${hex}10` : '#f9fafb',
+                    border: `1.5px solid ${active ? hex + '55' : '#e5e7eb'}`,
+                    transition: 'all 0.15s',
+                  }}>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                    background: active ? hex : '#e5e7eb',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'all 0.15s',
+                  }}>
+                    {active && <CheckOutlined style={{ fontSize: 11, color: '#fff' }} />}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: active ? 700 : 500, color: active ? '#1e1b4b' : '#6b7280' }}>{s.label}</div>
+                    <div style={{ fontSize: 11, color: '#9ca3af' }}>{s.desc}</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Buttons */}
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={onClose} style={{
+          flex: 1, height: 44, border: '1.5px solid #e5e7eb', borderRadius: 12,
+          background: '#fff', color: '#6b7280', fontSize: 14, fontWeight: 600, cursor: 'pointer'
+        }}>Hủy</button>
+        <button onClick={handleSave} disabled={loading} style={{
+          flex: 2, height: 44, border: 'none', borderRadius: 12,
+          background: loading ? '#e2e8f0' : 'linear-gradient(135deg,#667eea,#764ba2)',
+          color: loading ? '#94a3b8' : '#fff', fontSize: 14, fontWeight: 700, cursor: loading ? 'wait' : 'pointer',
+          boxShadow: loading ? 'none' : '0 4px 16px rgba(102,126,234,0.4)'
+        }}>
+          {loading ? <Spin size="small" /> : (editing ? '💾 Lưu thay đổi' : '✅ Tạo vai trò')}
+        </button>
+      </div>
+    </div>
+  )
+
+  if (isMobile) {
+    return (
+      <Drawer
+        open={open} onClose={onClose}
+        placement="bottom"
+        height="90vh"
+        title={title}
+        styles={{ body: { padding: '12px 16px', overflowY: 'auto' }, header: { borderBottom: '1px solid #f0f0f0' } }}
+        closeIcon={<span style={{ fontSize: 18 }}>✕</span>}
+      >
+        {body}
+      </Drawer>
+    )
+  }
+
+  return (
+    <Modal open={open} onCancel={onClose} footer={null} title={title} width={520} centered>
+      {body}
     </Modal>
   )
 }
