@@ -2355,6 +2355,27 @@ def dashboard_summary():
         staff_summary.sort(key=lambda x: x["tong_doanh_thu"], reverse=True)
         total_commission = sum(s["hoa_hong"] for s in staff_summary)
 
+        # === Lịch hẹn tiếp theo (gần nhất chưa xong) ===
+        import datetime as _dt
+        next_appt = db.query(Appointment).filter(
+            Appointment.tenant_id == tenant_id,
+            Appointment.appointment_time >= _dt.datetime.now(),
+            Appointment.status.notin_(["cancelled", "done"])
+        ).order_by(Appointment.appointment_time.asc()).first()
+
+        next_appt_data = None
+        if next_appt:
+            next_appt_data = {
+                "id": next_appt.id,
+                "time": next_appt.appointment_time.strftime("%H:%M"),
+                "date": next_appt.appointment_time.strftime("%d/%m"),
+                "customer_name": next_appt.customer_name,
+                "customer_phone": next_appt.customer_phone,
+                "stylist_name": next_appt.stylist_name,
+                "service_name": next_appt.service_name,
+                "status": next_appt.status,
+            }
+
         return ok({
             "today": {
                 "orders": today_q.orders or 0,
@@ -2364,6 +2385,7 @@ def dashboard_summary():
                 "new_customers": new_customers_today,
                 "appointments": appointments_today,
             },
+            "next_appointment": next_appt_data,
             "alerts": {
                 "low_stock": low_stock_count,
                 "debt_customers": debt_customers_count,

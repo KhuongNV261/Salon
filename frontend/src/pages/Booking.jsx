@@ -428,7 +428,7 @@ function AptCard({ apt, onStatus, onCancel, onEdit }) {
       {apt.note && <div style={{ fontSize: 12, color: '#888', marginTop: 8, fontStyle: 'italic' }}>💬 {apt.note}</div>}
 
       {!['done', 'cancelled'].includes(apt.status) && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
           {apt.status === 'pending' && (
             <Btn color="#4f46e5" onClick={() => onStatus(apt.id, 'confirmed')}>✓ Xác nhận</Btn>
           )}
@@ -438,6 +438,20 @@ function AptCard({ apt, onStatus, onCancel, onEdit }) {
           {apt.status === 'in_progress' && (
             <Btn color="#15803d" onClick={() => onStatus(apt.id, 'done')}>✓ Hoàn thành</Btn>
           )}
+          {/* Nhắc lịch qua Zalo */}
+          <button onClick={() => {
+            const txt = `Xin chào ${apt.customer_name}! 👋\nTiệm xin nhắc bạn có lịch hẹn lúc *${dayjs(apt.appointment_time).format('HH:mm')}* ngày *${dayjs(apt.appointment_time).format('DD/MM')}*` +
+              (apt.service_name ? ` — dịch vụ: *${apt.service_name}*` : '') +
+              (apt.stylist_name ? ` với thợ *${apt.stylist_name}*` : '') +
+              `.\n\nVui lòng có mặt đúng giờ nhé. Cảm ơn! 🙏`
+            navigator.clipboard.writeText(txt)
+              .then(() => message.success('✅ Copy xong! Paste vào Zalo gửi khách.', 3))
+              .catch(() => message.info('Không tự copy được'))
+          }} style={{
+            padding: '8px 12px', borderRadius: 10, border: '1.5px solid #06b6d4',
+            background: '#ecfeff', color: '#0891b2', fontSize: 12, cursor: 'pointer', fontWeight: 600,
+            display: 'flex', alignItems: 'center', gap: 4
+          }}>📋 Nhắc Zalo</button>
           <button onClick={() => onCancel(apt.id)} style={{
             padding: '8px 14px', borderRadius: 10, border: '1.5px solid #fca5a5',
             background: '#fff', color: '#ef4444', fontSize: 13, cursor: 'pointer', fontWeight: 600
