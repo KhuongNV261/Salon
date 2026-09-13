@@ -1,14 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Cormorant+Garamond:wght@400;600;700&display=swap');
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* Brand colors — Premium Salon */
-  --primary: #667eea;
-  --primary-dark: #5a6fd8;
-  --primary-light: #e8edff;
-  --accent: #764ba2;
-  --accent-light: #f0e8ff;
+  /* Brand colors — Aurelia Salon (Navy + Rose Gold) */
+  --primary: #c9956c;
+  --primary-dark: #b07a54;
+  --primary-light: #f8ede3;
+  --accent: #1a2f4e;
+  --accent-light: #e8f0f8;
 
   /* Semantic colors */
   --success: #10b981;
@@ -21,17 +21,17 @@
   --info-light: #dbeafe;
 
   /* Text */
-  --text: #1a1a2e;
-  --text-secondary: #6b7280;
+  --text: #0d1b2e;
+  --text-secondary: #4a5568;
   --text-muted: #9ca3af;
 
   /* Layout */
-  --bg: #f5f6fa;
+  --bg: #f7f3ef;
   --card-bg: #ffffff;
   --header-h: 58px;
   --tab-h: 62px;
-  --border: #e8eaed;
-  --border-light: #f3f4f6;
+  --border: #e8ddd5;
+  --border-light: #f5ede6;
 
   /* Shape */
   --radius: 14px;
@@ -39,9 +39,9 @@
   --radius-lg: 20px;
 
   /* Shadows */
-  --shadow: 0 2px 12px rgba(0,0,0,0.07);
-  --shadow-md: 0 4px 20px rgba(0,0,0,0.09);
-  --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
+  --shadow: 0 2px 12px rgba(13,27,46,0.07);
+  --shadow-md: 0 4px 20px rgba(13,27,46,0.09);
+  --shadow-lg: 0 8px 32px rgba(13,27,46,0.14);
 }
 
 html, body, #root {
@@ -72,7 +72,7 @@ html, body, #root {
    ============================== */
 .mobile-header {
   height: var(--header-h);
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background: linear-gradient(135deg, #0d1b2e 0%, #1a2f4e 60%, #0f3460 100%);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -146,7 +146,7 @@ html, body, #root {
 
 .mobile-content::-webkit-scrollbar { width: 3px; }
 .mobile-content::-webkit-scrollbar-track { background: transparent; }
-.mobile-content::-webkit-scrollbar-thumb { background: rgba(102,126,234,0.3); border-radius: 2px; }
+.mobile-content::-webkit-scrollbar-thumb { background: rgba(201,149,108,0.4); border-radius: 2px; }
 
 /* ==============================
    BOTTOM TAB BAR - Premium
@@ -216,7 +216,7 @@ html, body, #root {
   left: 25%;
   right: 25%;
   height: 3px;
-  background: linear-gradient(90deg, var(--primary), var(--accent));
+  background: linear-gradient(90deg, #c9956c, #e8c9a0);
   border-radius: 0 0 6px 6px;
   animation: slideIn 0.2s ease;
 }
