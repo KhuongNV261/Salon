@@ -48,16 +48,11 @@ export default function SuperAdminLogin() {
 
       {/* Logo + Brand */}
       <div style={{ textAlign: 'center', marginBottom: 36, animation: 'fadeSlideDown 0.5s ease' }}>
-        <div style={{
-          width: 72, height: 72, borderRadius: 22,
-          background: 'linear-gradient(135deg, #667eea, #764ba2)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 36, margin: '0 auto 16px',
-          boxShadow: '0 12px 40px rgba(102,126,234,0.5)',
-        }}>💈</div>
-        <div style={{ fontSize: 28, fontWeight: 900, color: '#fff', letterSpacing: '-0.5px' }}>
-          LocalPOS
+        <img src="/icon.png" alt="Aurelia Salon" style={{ width: 72, height: 72, borderRadius: 22, objectFit: 'cover', margin: '0 auto 16px', display: 'block', boxShadow: '0 12px 40px rgba(201,149,108,0.4)' }} />
+        <div style={{ fontSize: 22, fontWeight: 900, color: '#c9956c', letterSpacing: 2, fontFamily: "'Cormorant Garamond', serif" }}>
+          AURELIA SALON
         </div>
+        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', letterSpacing: 3, marginTop: 2 }}>BEAUTY & WELLNESS</div>
         <div style={{
           marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6,
           background: 'rgba(255,255,255,0.08)', borderRadius: 20,
@@ -84,7 +79,7 @@ export default function SuperAdminLogin() {
             Đăng nhập quản trị
           </div>
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
-            Chỉ dành cho Super Admin của LocalPOS
+            Chỉ dành cho Super Admin của Aurelia Salon
           </div>
         </div>
 
@@ -143,7 +138,7 @@ export default function SuperAdminLogin() {
         onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}
         onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.35)'}
       >
-        ← Về trang chủ LocalPOS
+        ← Về trang chủ Aurelia Salon
       </a>
 
       <style>{`

@@ -46,7 +46,7 @@ const PRICING = [
 ]
 
 const TESTIMONIALS = [
-  { name: 'Chị Lan', shop: 'Tiệm tóc Lan Beauty', text: 'Trước dùng sổ tay giờ chuyển LocalPOS, cắt giảm 30 phút/ngày ghi chép. Khách đặt lịch online nhiều hơn hẳn!', initials: 'LA', color: '#667eea' },
+  { name: 'Chị Lan', shop: 'Tiệm tóc Lan Beauty', text: 'Trước dùng sổ tay giờ chuyển Aurelia Salon, cắt giảm 30 phút/ngày ghi chép. Khách đặt lịch online nhiều hơn hẳn!', initials: 'LA', color: '#c9956c' },
   { name: 'Anh Tuấn', shop: 'Barber Shop T&T', text: 'Tính hoa hồng cho thợ mất 2 tiếng giờ chỉ cần 1 click. Thợ cũng vui vì thấy minh bạch hơn.', initials: 'TN', color: '#764ba2' },
   { name: 'Chị Mai', shop: 'Nail & Hair Studio', text: 'Khách công nợ mà không nhớ ai nợ bao nhiêu. Giờ mở tab Khách hàng là thấy liền. Xuất sắc!', initials: 'TM', color: '#f59e0b' },
 ]
@@ -330,7 +330,7 @@ export default function LandingPage() {
               💬 Đánh giá thực tế
             </div>
             <h2 style={{ fontSize: 'clamp(26px, 5vw, 40px)', fontWeight: 900, letterSpacing: '-0.5px' }}>
-              Chủ tiệm nói gì về LocalPOS?
+              Chủ tiệm nói gì về Aurelia Salon?
             </h2>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))', gap: 22 }}>
@@ -481,7 +481,7 @@ export default function LandingPage() {
           <div style={{ fontSize: 13 }}>
             © 2026 Aurelia Salon · Beauty & Wellness
           </div>
-          <a href="mailto:hello@localpos.vn" style={{ color: '#667eea', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
+          <a href="mailto:hello@aureliasalon.vn" style={{ color: '#c9956c', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
             hello@aureliasalon.vn
           </a>
         </div>
