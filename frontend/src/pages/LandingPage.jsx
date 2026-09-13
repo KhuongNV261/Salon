@@ -132,8 +132,11 @@ export default function LandingPage() {
         boxShadow: scrolled ? '0 2px 20px rgba(0,0,0,0.06)' : 'none'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 26, filter: 'drop-shadow(0 2px 6px rgba(102,126,234,0.4))' }}>💈</span>
-          <span style={{ fontWeight: 900, fontSize: 20, letterSpacing: '-0.5px', color: scrolled ? '#1a1a2e' : '#fff' }}>LocalPOS</span>
+          <img src="/logo.png" alt="Aurelia Salon" style={{ height: 38, objectFit: 'contain' }} />
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 16, letterSpacing: 1, color: scrolled ? '#c9956c' : '#c9956c', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.1 }}>AURELIA SALON</div>
+            <div style={{ fontSize: 9, letterSpacing: 2, color: scrolled ? '#888' : 'rgba(255,255,255,0.5)', fontWeight: 600 }}>BEAUTY & WELLNESS</div>
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <a href="#pricing" style={{ fontSize: 14, fontWeight: 600, color: scrolled ? '#555' : 'rgba(255,255,255,0.75)', textDecoration: 'none', transition: 'color 0.2s' }}>
@@ -472,14 +475,14 @@ export default function LandingPage() {
       <footer style={{ background: '#0a0814', color: 'rgba(255,255,255,0.3)', padding: '36px 24px' }}>
         <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 20 }}>💈</span>
-            <span style={{ fontWeight: 800, fontSize: 16, color: 'rgba(255,255,255,0.6)' }}>LocalPOS</span>
+            <img src="/logo.png" alt="Aurelia Salon" style={{ height: 32, objectFit: 'contain' }} />
+            <span style={{ fontWeight: 800, fontSize: 15, color: '#c9956c', fontFamily: "'Cormorant Garamond', serif", letterSpacing: 1 }}>AURELIA SALON</span>
           </div>
           <div style={{ fontSize: 13 }}>
-            © 2026 LocalPOS · Phần mềm quản lý tiệm tóc Việt Nam
+            © 2026 Aurelia Salon · Beauty & Wellness
           </div>
           <a href="mailto:hello@localpos.vn" style={{ color: '#667eea', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
-            hello@localpos.vn
+            hello@aureliasalon.vn
           </a>
         </div>
       </footer>
