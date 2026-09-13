@@ -116,6 +116,7 @@ class Customer(Base):
     visit_count = Column(Integer, default=0)
     last_visit_at = Column(DateTime(timezone=True))
     note = Column(Text)
+    birthday = Column(Date)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -1259,7 +1260,8 @@ def list_customers():
         customers = q.order_by(Customer.name).limit(50).all()
         return ok([{"id": str(c.id), "name": c.name, "phone": c.phone,
                     "debt": float(c.debt), "total_spent": float(c.total_spent),
-                    "visit_count": c.visit_count, "note": c.note} for c in customers])
+                    "visit_count": c.visit_count, "note": c.note,
+                    "birthday": c.birthday.strftime("%Y-%m-%d") if c.birthday else None} for c in customers])
     finally:
         db.close()
 
@@ -2012,7 +2014,8 @@ def create_customer():
         c = Customer(
             tenant_id=tenant_id,
             name=d["name"], phone=d.get("phone"),
-            address=d.get("address"), note=d.get("note")
+            address=d.get("address"), note=d.get("note"),
+            birthday=to_date(d["birthday"]) if d.get("birthday") else None
         )
         db.add(c)
         db.commit()
@@ -2032,6 +2035,8 @@ def update_customer(customer_id):
         if not c: return err("Không tìm thấy khách hàng", 404)
         for field in ["name", "phone", "address", "note"]:
             if field in d: setattr(c, field, d[field])
+        if "birthday" in d:
+            c.birthday = to_date(d["birthday"]) if d["birthday"] else None
         db.commit()
         return ok({"message": "Cập nhật thành công"})
     finally:
@@ -2402,6 +2407,42 @@ def dashboard_summary():
             "top_services": [{"name": r.product_name, "qty": float(r.qty or 0), "tong": float(r.tong or 0)} for r in top_services],
             "staff": staff_summary[:5],
         })
+    finally:
+        db.close()
+
+
+@app.get("/api/dashboard/birthdays")
+@jwt_required()
+def dashboard_birthdays():
+    """Khách có sinh nhật trong 7 ngày tới (hoặc hôm nay)"""
+    _, tenant_id, _ = current_user_info()
+    db = get_db()
+    try:
+        today = date.today()
+        customers = db.query(Customer).filter(
+            Customer.tenant_id == tenant_id,
+            Customer.birthday != None,
+            Customer.is_active == True
+        ).all()
+        result = []
+        for c in customers:
+            if not c.birthday: continue
+            # So sánh chỉ tháng + ngày (không so năm)
+            bday_this_year = c.birthday.replace(year=today.year)
+            if bday_this_year < today:
+                bday_this_year = c.birthday.replace(year=today.year + 1)
+            days_left = (bday_this_year - today).days
+            if 0 <= days_left <= 7:
+                result.append({
+                    "id": str(c.id),
+                    "name": c.name,
+                    "phone": c.phone,
+                    "birthday": c.birthday.strftime("%d/%m"),
+                    "days_left": days_left,
+                    "is_today": days_left == 0,
+                })
+        result.sort(key=lambda x: x["days_left"])
+        return ok(result)
     finally:
         db.close()
 

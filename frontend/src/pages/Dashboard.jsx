@@ -54,6 +54,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState(null)
   const [chartDays, setChartDays] = useState(7)
+  const [birthdays, setBirthdays] = useState([])
 
   useEffect(() => { load() }, [])
   useEffect(() => { load() }, [chartDays])
@@ -63,8 +64,12 @@ export default function Dashboard() {
   const load = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/api/dashboard/summary', { params: { days: chartDays } })
+      const [res, bdays] = await Promise.all([
+        api.get('/api/dashboard/summary', { params: { days: chartDays } }),
+        api.get('/api/dashboard/birthdays').catch(() => ({ data: [] }))
+      ])
       setData(res.data)
+      setBirthdays(bdays.data || [])
       setLastUpdated(new Date())
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
@@ -185,12 +190,43 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* â”€â”€ Cáº¢NH BÃO â”€â”€ */}
+        {/* ── SINH NHẬT TUẦN NÀY ── */}
+        {birthdays.length > 0 && (
+          <div style={{ background:'#fff', borderRadius:16, padding:'14px 16px', marginBottom:10, border:'2px solid #fce7f3' }}>
+            <div style={{ fontSize:12, fontWeight:700, color:'#be185d', marginBottom:10, display:'flex', alignItems:'center', gap:6 }}>
+              🎂 SINH NHẬT TUẦN NÀY ({birthdays.length} khách)
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {birthdays.map(b => (
+                <div key={b.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', borderRadius:10, background: b.is_today ? '#fdf2f8' : '#fff9fb', border:`1px solid ${b.is_today ? '#f9a8d4' : '#fce7f3'}` }}>
+                  <div>
+                    <div style={{ fontWeight:700, fontSize:13, color:'#1e1b4b' }}>
+                      {b.is_today ? '🎉' : '🎂'} {b.name}
+                      {b.is_today && <span style={{ marginLeft:6, fontSize:11, background:'#ec4899', color:'#fff', borderRadius:8, padding:'1px 8px', fontWeight:600 }}>Hôm nay!</span>}
+                    </div>
+                    <div style={{ fontSize:11, color:'#9ca3af' }}>{b.birthday}{!b.is_today && ` · còn ${b.days_left} ngày`}</div>
+                  </div>
+                  <div style={{ display:'flex', gap:6 }}>
+                    {b.phone && (
+                      <button onClick={() => {
+                        const txt = `Chúc mừng sinh nhật ${b.name}! 🎂🎉\nTiệm chúc bạn sinh nhật vui vẻ và tràn đầy sức khỏe!\nHẹn gặp lại bạn sớm nhé 💇`
+                        navigator.clipboard.writeText(txt).then(() => message.success('Copy xong! Paste vào Zalo gửi khách 🎂'))
+                      }} style={{ padding:'6px 10px', borderRadius:8, border:'1.5px solid #f9a8d4', background:'#fdf2f8', color:'#be185d', fontSize:11, fontWeight:700, cursor:'pointer' }}>🎁 Chúc</button>
+                    )}
+                    {b.phone && <a href={`tel:${b.phone}`} style={{ padding:'6px 10px', borderRadius:8, border:'1.5px solid #e5e7eb', background:'#fff', color:'#374151', fontSize:11, fontWeight:700, textDecoration:'none' }}>📞</a>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* â”€â”€ Cáº¢NH BÃ O â”€â”€ */}
         {(data?.alerts?.low_stock>0 || data?.alerts?.debt_customers>0) && (
           <div style={{ display:'flex', gap:8, marginBottom:10, flexWrap:'wrap' }}>
             {data?.alerts?.low_stock>0 && (
               <div style={{ flex:1, minWidth:130, background:'#fff7e6', border:'1px solid #ffd591', borderRadius:12, padding:'10px 14px', display:'flex', alignItems:'center', gap:8 }}>
-                <span style={{ fontSize:20 }}>âš ï¸</span>
+                <span style={{ fontSize:20 }}>âš ï¸ </span>
                 <div><div style={{ fontSize:11, fontWeight:700, color:'#d46b08' }}>HÃ ng sáº¯p háº¿t</div><div style={{ fontSize:16, fontWeight:800, color:'#874d00' }}>{data.alerts.low_stock} sp</div></div>
               </div>
             )}

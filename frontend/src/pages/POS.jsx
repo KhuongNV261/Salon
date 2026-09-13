@@ -416,6 +416,17 @@ export default function POS() {
           </div>
 
           <div style={{ padding: '8px 14px', borderTop: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* Nút Khách vãng lai nhanh */}
+            {!selectedCustomerId && !customerName && (
+              <button onClick={() => setCustomerName('Khách vãng lai')} style={{
+                width: '100%', padding: '10px', borderRadius: 10,
+                border: '2px dashed #d1d5db', background: '#f9fafb',
+                color: '#6b7280', fontSize: 13, fontWeight: 600,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+              }}>
+                ⚡ Khách vãng lai (thu tiền nhanh)
+              </button>
+            )}
             <Select showSearch allowClear placeholder="👤 Chọn khách hàng..." style={{ width: '100%' }}
               filterOption={false} onSearch={searchCustomers}
               onChange={onSelectCustomer}
