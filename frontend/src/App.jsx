@@ -324,9 +324,9 @@ function MobileLayout({ children, shopInfo }) {
         <div className="mobile-header-left">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <img
-              src="/logo.png"
+              src="/icon.png"
               alt="Aurelia Salon"
-              style={{ height: 36, width: 36, objectFit: 'contain', borderRadius: 8, background: 'rgba(255,255,255,0.08)' }}
+              style={{ height: 36, width: 36, objectFit: 'cover', borderRadius: 8 }}
             />
             <div>
               <div style={{ fontSize: 13, fontWeight: 800, color: '#c9956c', letterSpacing: 0.5, lineHeight: 1.1, fontFamily: "'Cormorant Garamond', serif" }}>

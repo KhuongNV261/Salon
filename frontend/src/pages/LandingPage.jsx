@@ -132,7 +132,7 @@ export default function LandingPage() {
         boxShadow: scrolled ? '0 2px 20px rgba(0,0,0,0.06)' : 'none'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/logo.png" alt="Aurelia Salon" style={{ height: 38, objectFit: 'contain' }} />
+          <img src="/icon.png" alt="Aurelia Salon" style={{ height: 40, width: 40, objectFit: 'cover', borderRadius: 8 }} />
           <div>
             <div style={{ fontWeight: 900, fontSize: 16, letterSpacing: 1, color: scrolled ? '#c9956c' : '#c9956c', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.1 }}>AURELIA SALON</div>
             <div style={{ fontSize: 9, letterSpacing: 2, color: scrolled ? '#888' : 'rgba(255,255,255,0.5)', fontWeight: 600 }}>BEAUTY & WELLNESS</div>
@@ -475,7 +475,7 @@ export default function LandingPage() {
       <footer style={{ background: '#0a0814', color: 'rgba(255,255,255,0.3)', padding: '36px 24px' }}>
         <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img src="/logo.png" alt="Aurelia Salon" style={{ height: 32, objectFit: 'contain' }} />
+            <img src="/icon.png" alt="Aurelia Salon" style={{ height: 32, width: 32, objectFit: 'cover', borderRadius: 6 }} />
             <span style={{ fontWeight: 800, fontSize: 15, color: '#c9956c', fontFamily: "'Cormorant Garamond', serif", letterSpacing: 1 }}>AURELIA SALON</span>
           </div>
           <div style={{ fontSize: 13 }}>
