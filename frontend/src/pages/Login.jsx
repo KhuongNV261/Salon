@@ -60,14 +60,10 @@ export default function Login({ shopInfo }) {
           <img
             src={shopInfo.logo_url}
             alt={shopInfo.name}
-            style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'cover', marginBottom: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', border: '3px solid rgba(255,255,255,0.2)' }}
+            style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'contain', marginBottom: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', background: 'transparent' }}
           />
         ) : (
-          <img
-            src="/icon.png"
-            alt="Aurelia Salon"
-            style={{ width: 88, height: 88, borderRadius: '50%', objectFit: 'cover', marginBottom: 16, boxShadow: '0 8px 32px rgba(201,149,108,0.45)' }}
-          />
+          <div style={{ width: 88, height: 88, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, marginBottom: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>💈</div>
         )}
 
         {/* Shop name */}

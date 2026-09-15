@@ -280,7 +280,7 @@ export default function Settings({ setShopInfo, shopInfo }) {
           <FieldRow label="Logo tiệm" hint="Hiển thị trên trang đăng nhập và các màn hình khác">
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
               {form.logo_url ? (
-                <img src={form.logo_url} alt="logo" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e5e7eb', flexShrink: 0 }} />
+                <img src={form.logo_url} alt="logo" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'contain', flexShrink: 0, background: 'transparent' }} />
               ) : (
                 <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>💈</div>
               )}

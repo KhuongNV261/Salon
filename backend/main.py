@@ -55,8 +55,6 @@ class Tenant(Base):
     close_time = Column(String(5), default="20:00")
     slot_interval = Column(Integer, default=30)
     phone = Column(String(20))
-    logo_url = Column(Text)          # base64 hoặc URL logo tiệm
-    login_bg_url = Column(Text)       # base64 hoặc URL hình nền trang đăng nhập
     slug = Column(String(50), unique=True)
 
 class User(Base):
@@ -702,8 +700,8 @@ def public_get_shop(slug):
             "slug": t.slug,
             "address": t.address or "",
             "phone": t.phone or "",
-            "logo_url": t.logo_url or "",
-            "login_bg_url": t.login_bg_url or "",
+            "logo_url": settings.get("logo_url", ""),
+            "login_bg_url": settings.get("login_bg_url", ""),
             "theme": settings.get("theme", "classic"),
             "features": t.features or {},
             "max_staff": t.max_staff if t.max_staff is not None else 10,
@@ -888,8 +886,8 @@ def get_settings():
             "address": t.address or "",
             "phone": t.phone or "",
             "slug": t.slug or "",
-            "logo_url": t.logo_url or "",
-            "login_bg_url": t.login_bg_url or "",
+            "logo_url": settings.get("logo_url", ""),
+            "login_bg_url": settings.get("login_bg_url", ""),
             "open_time": t.open_time or "08:00",
             "close_time": t.close_time or "20:00",
             "slot_interval": t.slot_interval or 30,
@@ -914,11 +912,11 @@ def update_settings():
     try:
         t = db.query(Tenant).filter(Tenant.id == tenant_id).first()
         if not t: return err("Tenant not found", 404)
-        for field in ["name", "address", "phone", "open_time", "close_time", "slot_interval", "slug", "logo_url", "login_bg_url"]:
+        for field in ["name", "address", "phone", "open_time", "close_time", "slot_interval", "slug"]:
             if field in d:
                 setattr(t, field, d[field])
         # Lưu các settings vào JSONB
-        settings_fields = ["theme", "bank_name", "bank_account_number", "bank_account_name", "bank_transfer_note"]
+        settings_fields = ["theme", "bank_name", "bank_account_number", "bank_account_name", "bank_transfer_note", "logo_url", "login_bg_url"]
         if any(f in d for f in settings_fields):
             current_settings = dict(t.settings or {})
             for sf in settings_fields:
