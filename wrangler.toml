@@ -3,9 +3,9 @@ compatibility_date = "2024-09-23"
 
 # Domain chính (custom_domain tạo DNS record tự động)
 routes = [
-  { pattern = "khuong2601.io.vn", custom_domain = true },
-  { pattern = "www.khuong2601.io.vn", custom_domain = true },
-  { pattern = "*.khuong2601.io.vn/*", zone_name = "khuong2601.io.vn" }
+  { pattern = "aureliasalon.online", custom_domain = true },
+  { pattern = "www.aureliasalon.online", custom_domain = true },
+  { pattern = "*.aureliasalon.online/*", zone_name = "aureliasalon.online" }
 ]
 
 # Serve static files từ thư mục build của frontend
