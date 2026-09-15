@@ -14,6 +14,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import create_engine, Column, String, Boolean, DateTime, Numeric, Integer, Text, SmallInteger, Date, ForeignKey, func, or_, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, relationship
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB
 
 load_dotenv()
@@ -917,12 +918,15 @@ def update_settings():
                 setattr(t, field, d[field])
         # Lưu các settings vào JSONB
         settings_fields = ["theme", "bank_name", "bank_account_number", "bank_account_name", "bank_transfer_note", "logo_url", "login_bg_url"]
-        if any(f in d for f in settings_fields):
-            current_settings = dict(t.settings or {})
-            for sf in settings_fields:
-                if sf in d:
-                    current_settings[sf] = d[sf]
+        current_settings = dict(t.settings or {})
+        changed = False
+        for sf in settings_fields:
+            if sf in d:
+                current_settings[sf] = d[sf]
+                changed = True
+        if changed:
             t.settings = current_settings
+            flag_modified(t, "settings")  # Bắt buộc SQLAlchemy nhận ra thay đổi JSONB
         db.commit()
         return ok({"message": "Cập nhật thành công"})
     finally:

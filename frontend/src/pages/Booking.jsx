@@ -581,7 +581,8 @@ export default function Booking() {
       loadAvailability(); loadAppointments()
       setView('timeline')
     } catch (e) {
-      message.error(e.response?.data?.error || 'Lỗi đặt lịch')
+      console.error(e);
+      message.error(e.response?.data?.error || e.response?.data?.msg || e.message || 'Lỗi đặt lịch')
     } finally { setSubmitting(false) }
   }
 
