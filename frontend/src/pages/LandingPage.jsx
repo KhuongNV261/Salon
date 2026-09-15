@@ -150,31 +150,34 @@ export default function LandingPage() {
         background: scrolled ? 'rgba(255,255,255,0.96)' : 'transparent',
         backdropFilter: scrolled ? 'blur(20px)' : 'none',
         borderBottom: scrolled ? '1px solid rgba(0,0,0,0.07)' : 'none',
-        padding: '0 24px', height: 64,
+        padding: '0 16px', height: 56,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         transition: 'all 0.3s ease',
         boxShadow: scrolled ? '0 2px 20px rgba(0,0,0,0.06)' : 'none'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/icon.png" alt="Aurelia Salon" style={{ height: 40, width: 40, objectFit: 'cover', borderRadius: '50%' }} />
-          <div>
-            <div style={{ fontWeight: 900, fontSize: 16, letterSpacing: 1, color: scrolled ? '#c9956c' : '#c9956c', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.1 }}>AURELIA SALON</div>
-            <div style={{ fontSize: 9, letterSpacing: 2, color: scrolled ? '#888' : 'rgba(255,255,255,0.5)', fontWeight: 600 }}>BEAUTY & WELLNESS</div>
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <img src="/icon.png" alt="Aurelia Salon" style={{ height: 34, width: 34, objectFit: 'cover', borderRadius: '50%', flexShrink: 0 }} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 900, fontSize: 13, letterSpacing: 0.5, color: '#c9956c', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.1, whiteSpace: 'nowrap' }}>AURELIA SALON</div>
+            <div style={{ fontSize: 8, letterSpacing: 1.5, color: scrolled ? '#888' : 'rgba(255,255,255,0.5)', fontWeight: 600, whiteSpace: 'nowrap' }}>BEAUTY & WELLNESS</div>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <a href="#pricing" style={{ fontSize: 14, fontWeight: 600, color: scrolled ? '#555' : 'rgba(255,255,255,0.75)', textDecoration: 'none', transition: 'color 0.2s' }}>
+        {/* Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          {/* Ẩn Bảng giá trên mobile nhỏ, hiện khi màn >= 480px */}
+          <a href="#pricing" className="nav-banggia" style={{ fontSize: 13, fontWeight: 600, color: scrolled ? '#555' : 'rgba(255,255,255,0.8)', textDecoration: 'none', transition: 'color 0.2s', whiteSpace: 'nowrap' }}>
             Bảng giá
           </a>
           <button onClick={() => { setShowLoginModal(true); setFoundShop(null); setSlugInput(''); setSlugError('') }} style={{
             background: 'linear-gradient(135deg, #667eea, #764ba2)',
             color: '#fff', border: 'none',
-            padding: '9px 22px', borderRadius: 50, fontSize: 14,
-            fontWeight: 700, boxShadow: '0 4px 16px rgba(102,126,234,0.4)',
-            transition: 'all 0.2s', cursor: 'pointer'
+            padding: '8px 16px', borderRadius: 50, fontSize: 13,
+            fontWeight: 700, boxShadow: '0 4px 14px rgba(102,126,234,0.4)',
+            transition: 'all 0.2s', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0
           }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(102,126,234,0.5)' }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(102,126,234,0.4)' }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)' }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'none' }}
           >
             Đăng nhập ↗
           </button>
@@ -523,6 +526,10 @@ export default function LandingPage() {
         @keyframes fadeSlideDown {
           from { opacity: 0; transform: translateY(-18px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        /* Ẩn Bảng giá trên màn hình nhỏ hơn 400px */
+        @media (max-width: 400px) {
+          .nav-banggia { display: none !important; }
         }
       `}</style>
 

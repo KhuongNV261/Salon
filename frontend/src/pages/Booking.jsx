@@ -571,7 +571,7 @@ export default function Booking() {
         stylist_name: stylist?.name || null,
         service_id: selectedService || null,
         service_name: svc?.name || null,
-        appointment_time: dayjs(`${selectedDate}T${selectedSlot}:00`).format(),
+        appointment_time: dayjs(`${selectedDate}T${selectedSlot}:00`).format('YYYY-MM-DDTHH:mm:ss'),
         duration_minutes: shopSettings.slot_interval,
         note: note || null
       })

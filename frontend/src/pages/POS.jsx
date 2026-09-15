@@ -191,7 +191,8 @@ export default function POS() {
   const filtered = products.filter(p => {
     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase())
     const matchCat = !catFilter || p.category_id === catFilter
-    return matchSearch && matchCat
+    const matchType = !p.is_service   // Chỉ hiện Hàng hóa, không hiện Dịch vụ
+    return matchSearch && matchCat && matchType
   })
 
   const addToCart = (product) => {

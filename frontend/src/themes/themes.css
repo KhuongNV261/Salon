@@ -412,3 +412,294 @@
 [data-theme] .ant-tabs-tab-active .ant-tabs-tab-btn {
   color: var(--primary) !important;
 }
+
+/* ============================================================
+   THEME 5: CHRISTMAS - Giáng Sinh (Đỏ / Xanh lá / Vàng Gold)
+   ============================================================ */
+[data-theme="christmas"] {
+  --primary: #c0392b;
+  --primary-dark: #a93226;
+  --accent: #27ae60;
+  --primary-rgb: 192, 57, 43;
+  --accent-rgb: 39, 174, 96;
+  --success: #27ae60;
+  --danger: #e74c3c;
+  --warning: #f39c12;
+  --text: #1a0a0a;
+  --text-secondary: #7f5a5a;
+  --text-inverse: #ffffff;
+  --bg: #fff8f8;
+  --card-bg: #ffffff;
+  --border: #f5c6c6;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-pill: 99px;
+  --shadow: 0 2px 14px rgba(192,57,43,0.1);
+  --shadow-lg: 0 8px 32px rgba(192,57,43,0.18);
+  --font: 'Inter', -apple-system, sans-serif;
+
+  --header-bg: linear-gradient(135deg, #7b0e00 0%, #c0392b 50%, #27ae60 100%);
+  --header-shadow: 0 4px 20px rgba(192,57,43,0.3);
+  --header-text: #ffd700;
+  --header-subtext: rgba(255,215,0,0.6);
+  --header-btn-bg: rgba(255,215,0,0.15);
+  --header-btn-border: rgba(255,215,0,0.3);
+
+  --tab-bg: #ffffff;
+  --tab-border: #f5c6c6;
+  --tab-inactive: #c0a0a0;
+  --tab-active: #c0392b;
+  --tab-indicator: linear-gradient(90deg, #c0392b, #27ae60);
+  --tab-radius: 0;
+
+  --card-border: rgba(192,57,43,0.08);
+  --stat-card-bg: #fff8f8;
+  --stat-border-left: #c0392b;
+
+  --btn-bg: linear-gradient(135deg, #a93226, #c0392b);
+  --btn-shadow: 0 4px 16px rgba(192,57,43,0.35);
+  --scrollbar-color: rgba(192,57,43,0.3);
+
+  --login-bg: linear-gradient(160deg, #7b0e00 0%, #c0392b 40%, #27ae60 100%);
+  --login-card-bg: rgba(255,255,255,0.14);
+  --login-card-border: rgba(255,215,0,0.3);
+}
+[data-theme="christmas"] .mobile-header { border-bottom: none; }
+[data-theme="christmas"] .bottom-tab-bar {
+  background: rgba(255,255,255,0.98);
+  border-top: 2px solid #f5c6c6;
+  box-shadow: 0 -4px 20px rgba(192,57,43,0.1);
+}
+
+/* ============================================================
+   THEME 6: TET - Tết Nguyên Đán (Đỏ rực / Vàng / Hồng đào)
+   ============================================================ */
+[data-theme="tet"] {
+  --primary: #d4230a;
+  --primary-dark: #b01d08;
+  --accent: #f0a500;
+  --primary-rgb: 212, 35, 10;
+  --accent-rgb: 240, 165, 0;
+  --success: #4caf50;
+  --danger: #e53935;
+  --warning: #f0a500;
+  --text: #1a0505;
+  --text-secondary: #7a3020;
+  --text-inverse: #ffffff;
+  --bg: #fff9f0;
+  --card-bg: #ffffff;
+  --border: #fad7b0;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-pill: 99px;
+  --shadow: 0 2px 14px rgba(212,35,10,0.1);
+  --shadow-lg: 0 8px 32px rgba(212,35,10,0.2);
+  --font: 'Inter', -apple-system, sans-serif;
+
+  --header-bg: linear-gradient(135deg, #8b0000 0%, #d4230a 45%, #f0a500 100%);
+  --header-shadow: 0 4px 24px rgba(212,35,10,0.35);
+  --header-text: #ffd700;
+  --header-subtext: rgba(255,215,0,0.65);
+  --header-btn-bg: rgba(255,215,0,0.18);
+  --header-btn-border: rgba(255,215,0,0.35);
+
+  --tab-bg: #ffffff;
+  --tab-border: #fad7b0;
+  --tab-inactive: #c09070;
+  --tab-active: #d4230a;
+  --tab-indicator: linear-gradient(90deg, #d4230a, #f0a500);
+  --tab-radius: 0;
+
+  --card-border: rgba(212,35,10,0.08);
+  --stat-card-bg: #fff9f0;
+  --stat-border-left: #d4230a;
+
+  --btn-bg: linear-gradient(135deg, #b01d08, #f0a500);
+  --btn-shadow: 0 4px 18px rgba(212,35,10,0.38);
+  --scrollbar-color: rgba(212,35,10,0.3);
+
+  --login-bg: linear-gradient(160deg, #8b0000 0%, #d4230a 45%, #f0a500 100%);
+  --login-card-bg: rgba(255,255,255,0.13);
+  --login-card-border: rgba(255,215,0,0.32);
+}
+[data-theme="tet"] .mobile-header { border-bottom: none; }
+[data-theme="tet"] .bottom-tab-bar {
+  background: #fff9f0;
+  border-top: 2px solid #fad7b0;
+  box-shadow: 0 -4px 20px rgba(212,35,10,0.1);
+}
+
+/* ============================================================
+   THEME 7: MID-AUTUMN - Trung Thu (Cam ấm / Vàng trăng / Nâu)
+   ============================================================ */
+[data-theme="midautumn"] {
+  --primary: #e07b00;
+  --primary-dark: #c06a00;
+  --accent: #f5c842;
+  --primary-rgb: 224, 123, 0;
+  --accent-rgb: 245, 200, 66;
+  --success: #52c41a;
+  --danger: #ff4d4f;
+  --warning: #e07b00;
+  --text: #1a0e00;
+  --text-secondary: #7a5520;
+  --text-inverse: #ffffff;
+  --bg: #fff8ee;
+  --card-bg: #ffffff;
+  --border: #fde8bb;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --radius-pill: 99px;
+  --shadow: 0 2px 14px rgba(224,123,0,0.1);
+  --shadow-lg: 0 8px 32px rgba(224,123,0,0.18);
+  --font: 'Nunito', -apple-system, sans-serif;
+
+  --header-bg: linear-gradient(135deg, #4a2800 0%, #e07b00 55%, #f5c842 100%);
+  --header-shadow: 0 4px 24px rgba(224,123,0,0.3);
+  --header-text: #fff8ee;
+  --header-subtext: rgba(255,248,238,0.65);
+  --header-btn-bg: rgba(255,255,255,0.15);
+  --header-btn-border: rgba(255,255,255,0.25);
+
+  --tab-bg: #ffffff;
+  --tab-border: #fde8bb;
+  --tab-inactive: #c09a60;
+  --tab-active: #e07b00;
+  --tab-indicator: linear-gradient(90deg, #e07b00, #f5c842);
+  --tab-radius: 0;
+
+  --card-border: rgba(224,123,0,0.08);
+  --stat-card-bg: #fff8ee;
+  --stat-border-left: #e07b00;
+
+  --btn-bg: linear-gradient(135deg, #c06a00, #f5c842);
+  --btn-shadow: 0 4px 16px rgba(224,123,0,0.35);
+  --scrollbar-color: rgba(224,123,0,0.3);
+
+  --login-bg: linear-gradient(160deg, #4a2800 0%, #e07b00 55%, #f5c842 100%);
+  --login-card-bg: rgba(255,255,255,0.13);
+  --login-card-border: rgba(245,200,66,0.35);
+}
+[data-theme="midautumn"] .mobile-header { border-bottom: none; }
+[data-theme="midautumn"] .bottom-tab-bar {
+  background: #fff8ee;
+  border-top: 2px solid #fde8bb;
+  box-shadow: 0 -4px 20px rgba(224,123,0,0.1);
+}
+
+/* ============================================================
+   THEME 8: INDEPENDENCE DAY - Mùng 2/9 (Đỏ cờ / Vàng sao)
+   ============================================================ */
+[data-theme="independence"] {
+  --primary: #da251d;
+  --primary-dark: #b51c15;
+  --accent: #ffcd00;
+  --primary-rgb: 218, 37, 29;
+  --accent-rgb: 255, 205, 0;
+  --success: #52c41a;
+  --danger: #da251d;
+  --warning: #ffcd00;
+  --text: #1a0000;
+  --text-secondary: #8a3030;
+  --text-inverse: #ffffff;
+  --bg: #fff5f5;
+  --card-bg: #ffffff;
+  --border: #fac8c8;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-pill: 99px;
+  --shadow: 0 2px 14px rgba(218,37,29,0.1);
+  --shadow-lg: 0 8px 32px rgba(218,37,29,0.18);
+  --font: 'Inter', -apple-system, sans-serif;
+
+  --header-bg: linear-gradient(135deg, #8b0000 0%, #da251d 60%, #da251d 100%);
+  --header-shadow: 0 4px 24px rgba(218,37,29,0.35);
+  --header-text: #ffcd00;
+  --header-subtext: rgba(255,205,0,0.7);
+  --header-btn-bg: rgba(255,205,0,0.15);
+  --header-btn-border: rgba(255,205,0,0.35);
+
+  --tab-bg: #ffffff;
+  --tab-border: #fac8c8;
+  --tab-inactive: #c09090;
+  --tab-active: #da251d;
+  --tab-indicator: linear-gradient(90deg, #da251d, #ffcd00);
+  --tab-radius: 0;
+
+  --card-border: rgba(218,37,29,0.08);
+  --stat-card-bg: #fff5f5;
+  --stat-border-left: #da251d;
+
+  --btn-bg: linear-gradient(135deg, #b51c15, #da251d);
+  --btn-shadow: 0 4px 18px rgba(218,37,29,0.38);
+  --scrollbar-color: rgba(218,37,29,0.3);
+
+  --login-bg: linear-gradient(160deg, #8b0000 0%, #da251d 100%);
+  --login-card-bg: rgba(255,255,255,0.13);
+  --login-card-border: rgba(255,205,0,0.35);
+}
+[data-theme="independence"] .mobile-header { border-bottom: none; }
+[data-theme="independence"] .bottom-tab-bar {
+  background: #fff5f5;
+  border-top: 2px solid #fac8c8;
+  box-shadow: 0 -4px 20px rgba(218,37,29,0.1);
+}
+
+/* ============================================================
+   THEME 9: HUNG KING - Giỗ Tổ Hùng Vương (Đỏ thắm / Vàng cổ / Nâu đất)
+   ============================================================ */
+[data-theme="hungking"] {
+  --primary: #8b1a1a;
+  --primary-dark: #6e1414;
+  --accent: #c8960c;
+  --primary-rgb: 139, 26, 26;
+  --accent-rgb: 200, 150, 12;
+  --success: #4caf50;
+  --danger: #e53935;
+  --warning: #c8960c;
+  --text: #120505;
+  --text-secondary: #6a3a1a;
+  --text-inverse: #fff8e7;
+  --bg: #fdf6ec;
+  --card-bg: #ffffff;
+  --border: #e8d5a0;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-pill: 99px;
+  --shadow: 0 2px 14px rgba(139,26,26,0.1);
+  --shadow-lg: 0 8px 32px rgba(139,26,26,0.18);
+  --font: 'Cormorant Garamond', Georgia, serif;
+
+  --header-bg: linear-gradient(135deg, #3d0000 0%, #8b1a1a 55%, #c8960c 100%);
+  --header-shadow: 0 4px 24px rgba(139,26,26,0.35);
+  --header-text: #ffd700;
+  --header-subtext: rgba(255,215,0,0.6);
+  --header-btn-bg: rgba(255,215,0,0.14);
+  --header-btn-border: rgba(255,215,0,0.3);
+
+  --tab-bg: #fdf6ec;
+  --tab-border: #e8d5a0;
+  --tab-inactive: #a08050;
+  --tab-active: #8b1a1a;
+  --tab-indicator: linear-gradient(90deg, #8b1a1a, #c8960c);
+  --tab-radius: 0;
+
+  --card-border: rgba(139,26,26,0.08);
+  --stat-card-bg: #fdf6ec;
+  --stat-border-left: #8b1a1a;
+
+  --btn-bg: linear-gradient(135deg, #6e1414, #c8960c);
+  --btn-shadow: 0 4px 18px rgba(139,26,26,0.38);
+  --scrollbar-color: rgba(139,26,26,0.3);
+
+  --login-bg: linear-gradient(160deg, #3d0000 0%, #8b1a1a 55%, #c8960c 100%);
+  --login-card-bg: rgba(255,248,231,0.13);
+  --login-card-border: rgba(255,215,0,0.3);
+}
+[data-theme="hungking"] .mobile-header { border-bottom: none; }
+[data-theme="hungking"] .bottom-tab-bar {
+  background: #fdf6ec;
+  border-top: 2px solid #e8d5a0;
+  box-shadow: 0 -4px 20px rgba(139,26,26,0.1);
+}
+[data-theme="hungking"] * { font-family: var(--font); }

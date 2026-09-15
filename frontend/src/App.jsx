@@ -430,7 +430,7 @@ function MobileLayout({ children, shopInfo }) {
 }
 
 // ─── ShopLoader: resolve slug → shop info ──────────────────
-const VALID_THEMES = ['classic', 'nature', 'luxury', 'cute']
+const VALID_THEMES = ['classic', 'nature', 'luxury', 'cute', 'christmas', 'tet', 'midautumn', 'independence', 'hungking']
 
 function ShopLoader({ overrideSlug } = {}) {
   const params = useParams()

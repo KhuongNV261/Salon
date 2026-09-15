@@ -258,10 +258,16 @@ export default function Settings({ setShopInfo, shopInfo }) {
           <Select value={form.theme || 'classic'} onChange={v => update('theme', v)}
             disabled={!canEdit} style={{ width: '100%' }} size="large"
             options={[
-              { value: 'classic', label: '🟣 Classic – Tím / Navy (Chuyên nghiệp)' },
-              { value: 'nature',  label: '🟢 Nature – Xanh lá (Spa / Nail / Thư giãn)' },
-              { value: 'luxury',  label: '⚫ Luxury – Đen / Vàng (Cao cấp)' },
-              { value: 'cute',    label: '🩷 Cute – Hồng (Nữ tính / Beauty)' },
+              { value: 'classic',      label: '🟣 Classic – Tím / Navy (Chuyên nghiệp)' },
+              { value: 'nature',       label: '🟢 Nature – Xanh lá (Spa / Nail / Thư giãn)' },
+              { value: 'luxury',       label: '⚫ Luxury – Đen / Vàng (Cao cấp)' },
+              { value: 'cute',         label: '🩷 Cute – Hồng (Nữ tính / Beauty)' },
+              { label: '── Ngày lễ ──', disabled: true, value: '__divider__' },
+              { value: 'christmas',    label: '🎄 Giáng Sinh – Đỏ / Xanh / Vàng Gold' },
+              { value: 'tet',          label: '🧧 Tết Nguyên Đán – Đỏ rực / Vàng may mắn' },
+              { value: 'midautumn',    label: '🏮 Trung Thu – Cam ấm / Vàng trăng' },
+              { value: 'independence', label: '🇻🇳 Mùng 2/9 – Đỏ cờ / Vàng sao' },
+              { value: 'hungking',     label: '🏛️ Giỗ Tổ Hùng Vương – Đỏ thắm / Vàng cổ' },
             ]}
           />
         </FieldRow>
