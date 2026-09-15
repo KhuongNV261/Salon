@@ -28,4 +28,4 @@ routes = [
   { pattern = "test.aureliasalon.online", custom_domain = true }
 ]
 [env.staging.vars]
-VITE_API_URL = "https://salon-staging-backend.onrender.com"
+VITE_API_URL = "https://salon-staging.onrender.com"
