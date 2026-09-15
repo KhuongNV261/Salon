@@ -55,7 +55,8 @@ class Tenant(Base):
     close_time = Column(String(5), default="20:00")
     slot_interval = Column(Integer, default=30)
     phone = Column(String(20))
-    logo_url = Column(String(500))
+    logo_url = Column(Text)          # base64 hoặc URL logo tiệm
+    login_bg_url = Column(Text)       # base64 hoặc URL hình nền trang đăng nhập
     slug = Column(String(50), unique=True)
 
 class User(Base):
@@ -620,8 +621,63 @@ def super_extend_tenant(tenant_id):
     finally:
         db.close()
 
+# ===== PUBLIC REGISTER (tự đăng ký tiệm mới) =====
+@app.post("/api/public/register")
+def public_register():
+    """Chủ tiệm tự đăng ký — không cần qua super admin"""
+    d = request.json or {}
+    required = ["tenant_name", "slug", "owner_name", "owner_phone", "owner_password"]
+    for f in required:
+        if not d.get(f):
+            return err(f"Thiếu thông tin: {f}", 400)
+
+    slug = d["slug"].lower().strip().replace(" ", "-")
+    # Validate slug: chỉ chứa chữ thường, số, dấu gạch ngang
+    import re
+    if not re.match(r'^[a-z0-9][a-z0-9\-]{1,48}[a-z0-9]$', slug):
+        return err("Đường dẫn chỉ được dùng chữ thường, số và dấu gạch ngang, tối thiểu 3 ký tự", 400)
+
+    db = get_db()
+    try:
+        if db.query(Tenant).filter(Tenant.slug == slug).first():
+            return err("Đường dẫn này đã có người dùng, vui lòng chọn tên khác", 400)
+        if db.query(User).filter(User.phone == d["owner_phone"]).first():
+            return err("Số điện thoại này đã được đăng ký", 400)
+
+        import datetime
+        t = Tenant(
+            name=d["tenant_name"],
+            slug=slug,
+            plan="trial",
+            status="active",
+            trial_ends_at=datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)
+        )
+        db.add(t)
+        db.flush()
+
+        u = User(
+            tenant_id=t.id,
+            name=d["owner_name"],
+            phone=d["owner_phone"],
+            password_hash=generate_password_hash(d["owner_password"]),
+            role="owner"
+        )
+        db.add(u)
+        db.commit()
+        return ok({
+            "message": "Tạo tiệm thành công! Dùng thử miễn phí 7 ngày.",
+            "slug": slug,
+            "tenant_id": str(t.id)
+        })
+    except Exception as e:
+        db.rollback()
+        return err(str(e), 500)
+    finally:
+        db.close()
+
 # ===== PUBLIC SHOP LOOKUP (không cần auth) =====
 @app.get("/api/public/shop/<slug>")
+
 def public_get_shop(slug):
     db = get_db()
     try:
@@ -647,6 +703,7 @@ def public_get_shop(slug):
             "address": t.address or "",
             "phone": t.phone or "",
             "logo_url": t.logo_url or "",
+            "login_bg_url": t.login_bg_url or "",
             "theme": settings.get("theme", "classic"),
             "features": t.features or {},
             "max_staff": t.max_staff if t.max_staff is not None else 10,
@@ -831,6 +888,8 @@ def get_settings():
             "address": t.address or "",
             "phone": t.phone or "",
             "slug": t.slug or "",
+            "logo_url": t.logo_url or "",
+            "login_bg_url": t.login_bg_url or "",
             "open_time": t.open_time or "08:00",
             "close_time": t.close_time or "20:00",
             "slot_interval": t.slot_interval or 30,
@@ -855,7 +914,7 @@ def update_settings():
     try:
         t = db.query(Tenant).filter(Tenant.id == tenant_id).first()
         if not t: return err("Tenant not found", 404)
-        for field in ["name", "address", "phone", "open_time", "close_time", "slot_interval", "slug"]:
+        for field in ["name", "address", "phone", "open_time", "close_time", "slot_interval", "slug", "logo_url", "login_bg_url"]:
             if field in d:
                 setattr(t, field, d[field])
         # Lưu các settings vào JSONB

@@ -23,6 +23,7 @@ import PublicBooking from './pages/PublicBooking'
 import LandingPage from './pages/LandingPage'
 import SuperAdminLogin from './pages/SuperAdminLogin'
 import SuperAdminDashboard from './pages/SuperAdminDashboard'
+import Register from './pages/Register'
 import useStore from './store'
 import api from './api'
 import { getSlugFromSubdomain } from './slug'
@@ -326,7 +327,7 @@ function MobileLayout({ children, shopInfo }) {
             <img
               src="/icon.png"
               alt="Aurelia Salon"
-              style={{ height: 36, width: 36, objectFit: 'cover', borderRadius: 8 }}
+              style={{ height: 36, width: 36, objectFit: 'cover', borderRadius: '50%' }}
             />
             <div>
               <div style={{ fontSize: 13, fontWeight: 800, color: '#c9956c', letterSpacing: 0.5, lineHeight: 1.1, fontFamily: "'Cormorant Garamond', serif" }}>
@@ -588,6 +589,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<RootRedirect />} />
+      <Route path="/dang-ky" element={<Register />} />
       <Route path="/super-admin" element={<SuperAdminLogin />} />
       <Route path="/super-admin/dashboard" element={<SuperAdminDashboard />} />
       <Route path="/:slug/*" element={<ShopLoader />} />
