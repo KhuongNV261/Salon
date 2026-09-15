@@ -141,8 +141,8 @@ export default function SuperAdminDashboard() {
   }
 
   const copyLink = (slug) => {
-    // Tạo link đăng nhập dạng subdomain: slug.khuong2601.io.vn/login
-    const link = `https://${slug}.khuong2601.io.vn/login`
+    // Tạo link đăng nhập dạng subdomain: slug.aureliasalon.online/login
+    const link = `https://${slug}.aureliasalon.online/login`
     navigator.clipboard.writeText(link)
     message.success(`Đã copy: ${link}`)
   }

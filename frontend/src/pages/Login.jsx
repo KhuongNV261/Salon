@@ -40,21 +40,31 @@ export default function Login({ shopInfo }) {
     }
   }
 
+  const bgStyle = shopInfo.login_bg_url
+    ? { backgroundImage: `url(${shopInfo.login_bg_url})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }
+    : { background: 'linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }
+
   return (
     <div style={{
       minHeight: '100dvh', display: 'flex', flexDirection: 'column',
-      background: 'linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+      ...bgStyle, position: 'relative',
     }}>
+      {/* Overlay khi có hình nền */}
+      {shopInfo.login_bg_url && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)' }} />
+      )}
       {/* Top branding */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px 24px' }}>
-        {/* Logo */}
-        <div style={{
-          width: 80, height: 80, borderRadius: 24,
-          background: 'linear-gradient(135deg, #667eea, #764ba2)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 40, marginBottom: 16,
-          boxShadow: '0 8px 32px rgba(102,126,234,0.5)'
-        }}>🏪</div>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px 24px', position: 'relative', zIndex: 1 }}>
+        {/* Logo tiệm hoặc logo mặc định */}
+        {shopInfo.logo_url ? (
+          <img
+            src={shopInfo.logo_url}
+            alt={shopInfo.name}
+            style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'contain', marginBottom: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', background: 'transparent' }}
+          />
+        ) : (
+          <div style={{ width: 88, height: 88, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, marginBottom: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>💈</div>
+        )}
 
         {/* Shop name */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
@@ -72,7 +82,7 @@ export default function Login({ shopInfo }) {
             borderRadius: 20, padding: '3px 12px',
             fontSize: 12, color: 'rgba(255,255,255,0.55)'
           }}>
-            localpos.vn/<span style={{ color: '#a78bfa', fontWeight: 700 }}>{slug}</span>
+            aureliasalon.online/<span style={{ color: '#a78bfa', fontWeight: 700 }}>{slug}</span>
           </div>
         </div>
 
@@ -138,8 +148,8 @@ export default function Login({ shopInfo }) {
       </div>
 
       {/* Footer */}
-      <div style={{ textAlign: 'center', padding: '16px 0 24px', color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>
-        Powered by LocalPOS
+      <div style={{ textAlign: 'center', padding: '16px 0 24px', color: 'rgba(255,255,255,0.25)', fontSize: 11, position: 'relative', zIndex: 1 }}>
+        Powered by Aurelia Salon
       </div>
     </div>
   )

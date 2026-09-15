@@ -571,7 +571,7 @@ export default function Booking() {
         stylist_name: stylist?.name || null,
         service_id: selectedService || null,
         service_name: svc?.name || null,
-        appointment_time: dayjs(`${selectedDate}T${selectedSlot}:00`).format(),
+        appointment_time: dayjs(`${selectedDate}T${selectedSlot}:00`).format('YYYY-MM-DDTHH:mm:ss'),
         duration_minutes: shopSettings.slot_interval,
         note: note || null
       })
@@ -581,7 +581,8 @@ export default function Booking() {
       loadAvailability(); loadAppointments()
       setView('timeline')
     } catch (e) {
-      message.error(e.response?.data?.error || 'Lỗi đặt lịch')
+      console.error(e);
+      message.error(e.response?.data?.error || e.response?.data?.msg || e.message || 'Lỗi đặt lịch')
     } finally { setSubmitting(false) }
   }
 

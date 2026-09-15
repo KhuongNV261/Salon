@@ -1,15 +1,15 @@
 /**
  * Đọc slug tiệm từ subdomain hoặc URL path
  *
- * Production:  tiemthanhthanh.khuong2601.io.vn  → slug = "tiemthanhthanh"
+ * Production:  tiemthanhthanh.aureliasalon.online  → slug = "tiemthanhthanh"
  * Localhost:   localhost:5173/tiemthanhthanh/... → slug = "tiemthanhthanh" (giữ nguyên)
  */
 
-const BASE_DOMAINS = ['khuong2601.io.vn', 'localhost', '127.0.0.1']
+const BASE_DOMAINS = ['aureliasalon.online', 'localhost', '127.0.0.1']
 
 /**
  * Trả về slug tiệm từ subdomain.
- * Ví dụ: tiemthanhthanh.khuong2601.io.vn → "tiemthanhthanh"
+ * Ví dụ: tiemthanhthanh.aureliasalon.online → "tiemthanhthanh"
  * Nếu không có subdomain (domain gốc) → trả về null
  */
 export function getSlugFromSubdomain() {
@@ -21,11 +21,11 @@ export function getSlugFromSubdomain() {
   }
 
   // Kiểm tra nếu hostname là subdomain của base domain
-  const baseDomain = 'khuong2601.io.vn'
+  const baseDomain = 'aureliasalon.online'
   if (hostname.endsWith('.' + baseDomain)) {
     const subdomain = hostname.slice(0, hostname.length - baseDomain.length - 1)
-    // Bỏ qua www
-    if (subdomain && subdomain !== 'www') {
+    // Bỏ qua www và test (dành cho môi trường staging)
+    if (subdomain && subdomain !== 'www' && subdomain !== 'test') {
       return subdomain
     }
   }

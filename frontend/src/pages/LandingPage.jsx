@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import api from '../api'
 
 const FEATURES = [
   { icon: '💈', title: 'POS Bán hàng', desc: 'Tính tiền nhanh, giỏ hàng thông minh, đa hình thức thanh toán' },
@@ -12,7 +14,7 @@ const FEATURES = [
 ]
 
 const STEPS = [
-  { num: '01', icon: '🔗', title: 'Đăng ký & nhận link', desc: 'Tạo tài khoản trong 30 giây. Nhận ngay link riêng: localpos.vn/tiem-cua-ban' },
+  { num: '01', icon: '🔗', title: 'Đăng ký & nhận link', desc: 'Tạo tài khoản trong 30 giây. Nhận ngay link riêng: aureliasalon.online/tiem-cua-ban' },
   { num: '02', icon: '⚙️', title: 'Cài đặt dịch vụ & nhân viên', desc: 'Thêm danh sách dịch vụ, giá tiền, nhân viên và ca làm việc. Mất 5 phút.' },
   { num: '03', icon: '🚀', title: 'Bắt đầu bán hàng', desc: 'Chia sẻ link đặt lịch cho khách. Mở POS, bấm bán, in hóa đơn. Xong!' },
 ]
@@ -103,7 +105,29 @@ function StatItem({ val, suffix, label, active }) {
 }
 
 export default function LandingPage() {
+  const navigate = useNavigate()
   const [scrolled, setScrolled] = useState(false)
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [slugInput, setSlugInput] = useState('')
+  const [slugLoading, setSlugLoading] = useState(false)
+  const [slugError, setSlugError] = useState('')
+  const [foundShop, setFoundShop] = useState(null)
+
+  const handleSlugLookup = async () => {
+    const slug = slugInput.trim().toLowerCase()
+    if (!slug) return setSlugError('Vui lòng nhập tên tiệm')
+    setSlugLoading(true)
+    setSlugError('')
+    setFoundShop(null)
+    try {
+      const res = await api.get(`/api/public/shop/${slug}`)
+      setFoundShop(res.data)
+    } catch {
+      setSlugError('Không tìm thấy tiệm. Kiểm tra lại tên đường dẫn.')
+    } finally {
+      setSlugLoading(false)
+    }
+  }
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 60)
@@ -126,34 +150,37 @@ export default function LandingPage() {
         background: scrolled ? 'rgba(255,255,255,0.96)' : 'transparent',
         backdropFilter: scrolled ? 'blur(20px)' : 'none',
         borderBottom: scrolled ? '1px solid rgba(0,0,0,0.07)' : 'none',
-        padding: '0 24px', height: 64,
+        padding: '0 16px', height: 56,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         transition: 'all 0.3s ease',
         boxShadow: scrolled ? '0 2px 20px rgba(0,0,0,0.06)' : 'none'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <img src="/icon.png" alt="Aurelia Salon" style={{ height: 40, width: 40, objectFit: 'cover', borderRadius: 8 }} />
-          <div>
-            <div style={{ fontWeight: 900, fontSize: 16, letterSpacing: 1, color: scrolled ? '#c9956c' : '#c9956c', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.1 }}>AURELIA SALON</div>
-            <div style={{ fontSize: 9, letterSpacing: 2, color: scrolled ? '#888' : 'rgba(255,255,255,0.5)', fontWeight: 600 }}>BEAUTY & WELLNESS</div>
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+          <img src="/icon.png" alt="Aurelia Salon" style={{ height: 34, width: 34, objectFit: 'cover', borderRadius: '50%', flexShrink: 0 }} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 900, fontSize: 13, letterSpacing: 0.5, color: '#c9956c', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.1, whiteSpace: 'nowrap' }}>AURELIA SALON</div>
+            <div style={{ fontSize: 8, letterSpacing: 1.5, color: scrolled ? '#888' : 'rgba(255,255,255,0.5)', fontWeight: 600, whiteSpace: 'nowrap' }}>BEAUTY & WELLNESS</div>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <a href="#pricing" style={{ fontSize: 14, fontWeight: 600, color: scrolled ? '#555' : 'rgba(255,255,255,0.75)', textDecoration: 'none', transition: 'color 0.2s' }}>
+        {/* Actions */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          {/* Ẩn Bảng giá trên mobile nhỏ, hiện khi màn >= 480px */}
+          <a href="#pricing" className="nav-banggia" style={{ fontSize: 13, fontWeight: 600, color: scrolled ? '#555' : 'rgba(255,255,255,0.8)', textDecoration: 'none', transition: 'color 0.2s', whiteSpace: 'nowrap' }}>
             Bảng giá
           </a>
-          <a href="/super-admin" style={{
+          <button onClick={() => { setShowLoginModal(true); setFoundShop(null); setSlugInput(''); setSlugError('') }} style={{
             background: 'linear-gradient(135deg, #667eea, #764ba2)',
-            color: '#fff', textDecoration: 'none',
-            padding: '9px 22px', borderRadius: 50, fontSize: 14,
-            fontWeight: 700, boxShadow: '0 4px 16px rgba(102,126,234,0.4)',
-            transition: 'all 0.2s', display: 'inline-block'
+            color: '#fff', border: 'none',
+            padding: '8px 16px', borderRadius: 50, fontSize: 13,
+            fontWeight: 700, boxShadow: '0 4px 14px rgba(102,126,234,0.4)',
+            transition: 'all 0.2s', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0
           }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(102,126,234,0.5)' }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(102,126,234,0.4)' }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)' }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'none' }}
           >
             Đăng nhập ↗
-          </a>
+          </button>
         </div>
       </nav>
 
@@ -205,19 +232,19 @@ export default function LandingPage() {
         </p>
 
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', animation: 'fadeSlideDown 0.6s ease 0.3s both' }}>
-          <a href="/super-admin" style={{
+          <button onClick={() => navigate('/dang-ky')} style={{
             background: 'linear-gradient(135deg, #667eea, #764ba2)',
-            color: '#fff', textDecoration: 'none',
+            color: '#fff', border: 'none',
             padding: '16px 34px', borderRadius: 50, fontSize: 16, fontWeight: 800,
             boxShadow: '0 8px 32px rgba(102,126,234,0.5)',
             display: 'inline-flex', alignItems: 'center', gap: 10,
-            transition: 'all 0.25s', letterSpacing: '-0.3px'
+            transition: 'all 0.25s', letterSpacing: '-0.3px', cursor: 'pointer'
           }}
             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 16px 48px rgba(102,126,234,0.6)' }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(102,126,234,0.5)' }}
           >
             🚀 Dùng thử miễn phí
-          </a>
+          </button>
           <a href="#features" style={{
             background: 'rgba(255,255,255,0.08)', color: '#fff', textDecoration: 'none',
             padding: '16px 30px', borderRadius: 50, fontSize: 16, fontWeight: 600,
@@ -475,14 +502,14 @@ export default function LandingPage() {
       <footer style={{ background: '#0a0814', color: 'rgba(255,255,255,0.3)', padding: '36px 24px' }}>
         <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img src="/icon.png" alt="Aurelia Salon" style={{ height: 32, width: 32, objectFit: 'cover', borderRadius: 6 }} />
+            <img src="/icon.png" alt="Aurelia Salon" style={{ height: 32, width: 32, objectFit: 'cover', borderRadius: '50%' }} />
             <span style={{ fontWeight: 800, fontSize: 15, color: '#c9956c', fontFamily: "'Cormorant Garamond', serif", letterSpacing: 1 }}>AURELIA SALON</span>
           </div>
           <div style={{ fontSize: 13 }}>
             © 2026 Aurelia Salon · Beauty & Wellness
           </div>
-          <a href="mailto:hello@aureliasalon.vn" style={{ color: '#c9956c', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
-            hello@aureliasalon.vn
+          <a href="mailto:hello@aureliasalon.online" style={{ color: '#c9956c', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
+            hello@aureliasalon.online
           </a>
         </div>
       </footer>
@@ -500,7 +527,111 @@ export default function LandingPage() {
           from { opacity: 0; transform: translateY(-18px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        /* Ẩn Bảng giá trên màn hình nhỏ hơn 400px */
+        @media (max-width: 400px) {
+          .nav-banggia { display: none !important; }
+        }
       `}</style>
+
+      {/* ── Modal Tìm tiệm / Đăng nhập ── */}
+      {showLoginModal && (
+        <div onClick={() => setShowLoginModal(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#fff', borderRadius: 20, padding: '32px 28px',
+            width: '100%', maxWidth: 420,
+            boxShadow: '0 32px 80px rgba(0,0,0,0.4)',
+            animation: 'fadeSlideDown 0.25s ease'
+          }}>
+            {!foundShop ? (
+              <>
+                <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                  <div style={{ fontSize: 36, marginBottom: 8 }}>🔍</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#1a1a2e', marginBottom: 4 }}>Đăng nhập vào tiệm</div>
+                  <div style={{ fontSize: 13, color: '#6b7280' }}>Nhập đường dẫn tiệm của bạn</div>
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', marginBottom: 6 }}>Tên đường dẫn tiệm</div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 1, position: 'relative' }}>
+                      <span style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', fontSize:11, color:'#9ca3af', pointerEvents:'none' }}>
+                        aureliasalon.online/
+                      </span>
+                      <input
+                        autoFocus
+                        value={slugInput}
+                        onChange={e => { setSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,'')); setSlugError('') }}
+                        onKeyDown={e => e.key === 'Enter' && handleSlugLookup()}
+                        placeholder="tiem-thanh-thanh"
+                        style={{
+                          width: '100%', height: 44, border: '1.5px solid #e5e7eb', borderRadius: 10,
+                          padding: '0 12px 0 152px', fontSize: 14, outline: 'none', boxSizing: 'border-box'
+                        }}
+                        onFocus={e => e.target.style.borderColor = '#667eea'}
+                        onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                      />
+                    </div>
+                    <button onClick={handleSlugLookup} disabled={slugLoading} style={{
+                      height: 44, padding: '0 18px', border: 'none', borderRadius: 10,
+                      background: 'linear-gradient(135deg,#667eea,#764ba2)', color: '#fff',
+                      fontWeight: 700, fontSize: 14, cursor: slugLoading ? 'wait' : 'pointer',
+                      whiteSpace: 'nowrap', flexShrink: 0
+                    }}>
+                      {slugLoading ? '...' : 'Tìm →'}
+                    </button>
+                  </div>
+                  {slugError && (
+                    <div style={{ fontSize: 12, color: '#dc2626', marginTop: 6 }}>⚠️ {slugError}</div>
+                  )}
+                </div>
+
+                <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 16, marginTop: 8, textAlign: 'center' }}>
+                  <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 10 }}>Chưa có tiệm?</div>
+                  <button onClick={() => { setShowLoginModal(false); window.location.href = '/dang-ky' }} style={{
+                    background: 'linear-gradient(135deg,#10b981,#059669)', color: '#fff',
+                    border: 'none', borderRadius: 50, padding: '10px 24px',
+                    fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(16,185,129,0.4)'
+                  }}>
+                    🚀 Tạo tiệm miễn phí
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                  {foundShop.logo_url ? (
+                    <img src={foundShop.logo_url} alt="logo" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', marginBottom: 12, boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }} />
+                  ) : (
+                    <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, margin: '0 auto 12px' }}>💈</div>
+                  )}
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#1a1a2e' }}>{foundShop.name}</div>
+                  <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>aureliasalon.online/{foundShop.slug}</div>
+                </div>
+
+                <button onClick={() => { setShowLoginModal(false); window.location.href = `/${foundShop.slug}/login` }} style={{
+                  width: '100%', height: 50, border: 'none', borderRadius: 12,
+                  background: 'linear-gradient(135deg,#667eea,#764ba2)', color: '#fff',
+                  fontSize: 15, fontWeight: 800, cursor: 'pointer',
+                  boxShadow: '0 8px 24px rgba(102,126,234,0.4)', marginBottom: 10
+                }}>
+                  Đăng nhập vào {foundShop.name} →
+                </button>
+                <button onClick={() => setFoundShop(null)} style={{
+                  width: '100%', height: 38, border: '1.5px solid #e5e7eb', borderRadius: 10,
+                  background: 'transparent', color: '#6b7280', fontSize: 13, cursor: 'pointer', fontWeight: 600
+                }}>
+                  ← Tìm tiệm khác
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
