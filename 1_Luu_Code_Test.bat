@@ -22,6 +22,6 @@ git push origin staging
 echo.
 echo ===================================================
 echo HOAN TAT! 
-echo Web Test da duoc cap nhat tai: https://test.aureliasalon.online
+echo Web Test da duoc cap nhat tai: https://salon-staging.nvkhuong-neu.workers.dev
 echo ===================================================
 pause

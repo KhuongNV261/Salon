@@ -121,7 +121,7 @@ export default function LandingPage() {
     setFoundShop(null)
     try {
       const res = await api.get(`/api/public/shop/${slug}`)
-      setFoundShop(res.data.data)
+      setFoundShop(res.data)
     } catch {
       setSlugError('Không tìm thấy tiệm. Kiểm tra lại tên đường dẫn.')
     } finally {
