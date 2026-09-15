@@ -188,7 +188,7 @@ export default function Settings({ setShopInfo, shopInfo }) {
     try {
       await api.put('/api/settings', form)
       message.success('✅ Đã lưu cài đặt!')
-      if (setShopInfo) setShopInfo(prev => ({ ...prev, theme: form.theme, name: form.name }))
+      if (setShopInfo) setShopInfo(prev => ({ ...prev, theme: form.theme, name: form.name, logo_url: form.logo_url, login_bg_url: form.login_bg_url }))
     } catch (e) {
       message.error(e.response?.data?.error || 'Lỗi lưu cài đặt!')
     } finally {
