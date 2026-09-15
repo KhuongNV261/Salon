@@ -24,8 +24,8 @@ export function getSlugFromSubdomain() {
   const baseDomain = 'aureliasalon.online'
   if (hostname.endsWith('.' + baseDomain)) {
     const subdomain = hostname.slice(0, hostname.length - baseDomain.length - 1)
-    // Bỏ qua www
-    if (subdomain && subdomain !== 'www') {
+    // Bỏ qua www và test (dành cho môi trường staging)
+    if (subdomain && subdomain !== 'www' && subdomain !== 'test') {
       return subdomain
     }
   }
