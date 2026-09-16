@@ -6,7 +6,7 @@ echo.
 
 echo [1/3] Dong goi code Frontend...
 cd frontend
-call npm run build
+call npm run build -- --mode staging
 cd ..
 
 echo [2/3] Day len web Test (Cloudflare Workers)...

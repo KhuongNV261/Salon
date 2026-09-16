@@ -60,7 +60,7 @@ export default function Login({ shopInfo }) {
           <img
             src={shopInfo.logo_url}
             alt={shopInfo.name}
-            style={{ width: 96, height: 96, objectFit: 'contain', marginBottom: 16, filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.5))' }}
+            style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'cover', marginBottom: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', background: 'transparent' }}
           />
         ) : (
           <div style={{ width: 88, height: 88, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, marginBottom: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>💈</div>

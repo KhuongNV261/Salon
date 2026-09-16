@@ -328,7 +328,7 @@ function MobileLayout({ children, shopInfo }) {
               <img
                 src={shopInfo.logo_url}
                 alt={shopInfo.name}
-                style={{ height: 36, width: 36, objectFit: 'contain' }}
+                style={{ height: 36, width: 36, objectFit: 'cover', borderRadius: '50%' }}
               />
             ) : (
               <div style={{ height: 36, width: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>💈</div>
