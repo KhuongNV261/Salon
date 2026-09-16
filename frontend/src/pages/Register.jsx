@@ -111,7 +111,7 @@ export default function Register() {
       <div style={{ width: '100%', maxWidth: 460, position: 'relative', zIndex: 1 }}>
         {/* Header logo */}
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <img src="/icon.png" alt="logo" style={{ width: 60, height: 60, borderRadius: '50%', marginBottom: 10, boxShadow: '0 8px 32px rgba(201,149,108,0.4)' }} />
+          <img src="/icon.png" alt="logo" style={{ width: 60, height: 60, objectFit: 'contain', marginBottom: 10, filter: 'drop-shadow(0 8px 24px rgba(201,149,108,0.4))' }} />
           <div style={{ fontSize: 18, fontWeight: 900, color: '#c9956c', letterSpacing: 1.5, fontFamily: "'Cormorant Garamond',serif" }}>AURELIA SALON</div>
           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', letterSpacing: 3 }}>BEAUTY & WELLNESS</div>
         </div>

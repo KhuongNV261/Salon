@@ -157,7 +157,7 @@ export default function LandingPage() {
       }}>
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          <img src="/icon.png" alt="Aurelia Salon" style={{ height: 34, width: 34, objectFit: 'cover', borderRadius: '50%', flexShrink: 0 }} />
+          <img src="/icon.png" alt="Aurelia Salon" style={{ height: 34, width: 34, objectFit: 'contain', flexShrink: 0 }} />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontWeight: 900, fontSize: 13, letterSpacing: 0.5, color: '#c9956c', fontFamily: "'Cormorant Garamond', serif", lineHeight: 1.1, whiteSpace: 'nowrap' }}>AURELIA SALON</div>
             <div style={{ fontSize: 8, letterSpacing: 1.5, color: scrolled ? '#888' : 'rgba(255,255,255,0.5)', fontWeight: 600, whiteSpace: 'nowrap' }}>BEAUTY & WELLNESS</div>
@@ -502,7 +502,7 @@ export default function LandingPage() {
       <footer style={{ background: '#0a0814', color: 'rgba(255,255,255,0.3)', padding: '36px 24px' }}>
         <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <img src="/icon.png" alt="Aurelia Salon" style={{ height: 32, width: 32, objectFit: 'cover', borderRadius: '50%' }} />
+            <img src="/icon.png" alt="Aurelia Salon" style={{ height: 32, width: 32, objectFit: 'contain' }} />
             <span style={{ fontWeight: 800, fontSize: 15, color: '#c9956c', fontFamily: "'Cormorant Garamond', serif", letterSpacing: 1 }}>AURELIA SALON</span>
           </div>
           <div style={{ fontSize: 13 }}>

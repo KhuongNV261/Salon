@@ -85,3 +85,5 @@
 | 1 | Gio dat lich sai 7 tieng        | Naive datetime khong timezone -> PostgreSQL luu nhu UTC  | Dung parse_apt_time() o backend        |
 | 2 | Click timeline khong luu slot   | useEffect reset selectedSlot=null khi stylist thay doi   | Dung skipSlotResetRef flag             |
 | 3 | Deploy thang len production     | Quen --env staging flag                                  | Nhac user chay bat file               |
+
+| 4 | Logo hien vien trang | File icon.png co pixel trang o ria khi crop tron | KHONG dung borderRadius:50% + objectFit:cover cho icon.png. Dung objectFit:contain, bo borderRadius, dung filter:drop-shadow thay box-shadow |
