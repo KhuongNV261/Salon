@@ -49,7 +49,7 @@ export default function SuperAdminLogin() {
       {/* Logo + Brand */}
       <div style={{ textAlign: 'center', marginBottom: 36, animation: 'fadeSlideDown 0.5s ease' }}>
         <div style={{ width: 80, height: 80, margin: '0 auto 16px', borderRadius: '50%', overflow: 'hidden', filter: 'drop-shadow(0 8px 24px rgba(201,149,108,0.5))' }}>
-          <img src="/icon.png" alt="Aurelia Salon" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.18)' }} />
+          <img src="/icon.png" alt="Aurelia Salon" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <div style={{ fontSize: 22, fontWeight: 900, color: '#c9956c', letterSpacing: 2, fontFamily: "'Cormorant Garamond', serif" }}>
           AURELIA SALON
