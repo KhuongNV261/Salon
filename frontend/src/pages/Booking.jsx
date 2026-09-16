@@ -494,6 +494,8 @@ export default function Booking() {
   const [submitting, setSubmitting] = useState(false)
   const [preSelectedStylist, setPreSelectedStylist] = useState(null)
   const [aptDetailModal, setAptDetailModal] = useState(null)
+  // Flag: khi set từ timeline thì không reset selectedSlot
+  const skipSlotResetRef = useRef(false)
 
 
   const allSlots = genSlots(shopSettings.open_time, shopSettings.close_time, shopSettings.slot_interval)
@@ -501,7 +503,11 @@ export default function Booking() {
   useEffect(() => { loadSettings(); loadStylists(); loadServices() }, [])
   useEffect(() => {
     loadAvailability(); loadAppointments()
-    setSelectedSlot(null)
+    if (skipSlotResetRef.current) {
+      skipSlotResetRef.current = false
+    } else {
+      setSelectedSlot(null)
+    }
   }, [selectedDate, selectedStylist])
 
   const loadSettings = async () => {
@@ -531,6 +537,8 @@ export default function Booking() {
 
   // Mở form đặt lịch từ timeline click
   const handleNewFromTimeline = (stylist, slot) => {
+    // Bật flag để effect không reset slot
+    skipSlotResetRef.current = true
     setPreSelectedStylist(stylist)
     setSelectedSlot(slot)
     setSelectedStylist(stylist.id)
@@ -542,7 +550,7 @@ export default function Booking() {
   const handleMoveApt = async (aptId, newTime, stylistId, stylistName) => {
     try {
       await api.put(`/api/appointments/${aptId}`, {
-        appointment_time: dayjs(newTime).format(),
+        appointment_time: newTime,  // newTime đã là 'YYYY-MM-DDTHH:mm:00' (giờ local)
         stylist_id: stylistId,
         stylist_name: stylistName,
       })
@@ -571,7 +579,8 @@ export default function Booking() {
         stylist_name: stylist?.name || null,
         service_id: selectedService || null,
         service_name: svc?.name || null,
-        appointment_time: dayjs(`${selectedDate}T${selectedSlot}:00`).format('YYYY-MM-DDTHH:mm:ss'),
+        // Gửi giờ local không kèm timezone, tránh bị backend convert sai giờ
+        appointment_time: `${selectedDate}T${selectedSlot}:00`,
         duration_minutes: shopSettings.slot_interval,
         note: note || null
       })

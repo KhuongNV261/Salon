@@ -1,6 +1,17 @@
 import os, uuid
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 from datetime import datetime as dt
+from datetime import datetime as _dt
+
+# Múi giờ Việt Nam UTC+7
+VN_TZ = timezone(timedelta(hours=7))
+
+def parse_apt_time(s):
+    """Parse appointment_time string. Nếu không có timezone thì gán UTC+7."""
+    dt_obj = datetime.fromisoformat(s)
+    if dt_obj.tzinfo is None:
+        dt_obj = dt_obj.replace(tzinfo=VN_TZ)
+    return dt_obj
 
 def to_date(s):
     """Convert 'YYYY-MM-DD' string to Python date — tránh lỗi psycopg3 date >= varchar"""
@@ -808,7 +819,7 @@ def public_create_appointment(slug):
         d = request.json
         apt_time_str = d.get("appointment_time")
         if not apt_time_str: return err("Thiếu thời gian đặt lịch", 400)
-        apt_time = datetime.fromisoformat(apt_time_str)
+        apt_time = parse_apt_time(apt_time_str)
         duration = int(d.get("duration_minutes", 60))
         stylist_id = d.get("stylist_id")
         stylist_name = d.get("stylist_name")
@@ -1770,7 +1781,7 @@ def create_appointment():
     try:
         # Parse thời gian
         apt_time_str = d.get("appointment_time")
-        apt_time = datetime.fromisoformat(apt_time_str)
+        apt_time = parse_apt_time(apt_time_str)
         duration = int(d.get("duration_minutes", 60))
 
         stylist_id = d.get("stylist_id")
@@ -1856,7 +1867,7 @@ def update_appointment(apt_id):
         for field in ["status", "note", "stylist_id", "stylist_name", "duration_minutes"]:
             if field in d: setattr(a, field, d[field])
         if "appointment_time" in d:
-            a.appointment_time = datetime.fromisoformat(d["appointment_time"])
+            a.appointment_time = parse_apt_time(d["appointment_time"])
         db.commit()
         return ok({"message": "Cap nhat thanh cong"})
     finally:
