@@ -103,6 +103,12 @@ function TimelineView({ appointments, stylists, selectedDate, shopSettings, onMo
   const dragRef = useRef(null)
   const containerRef = useRef(null)
 
+  // ✅ FIX LOGIC-1: Khai báo trước handleColClick để tránh undefined
+  const now = dayjs()
+  const nowMin = now.hour() * 60 + now.minute()
+  const isToday = selectedDate === now.format('YYYY-MM-DD')
+  const nowTop = ((nowMin - openMin) / totalMin) * containerH
+
   const getMinFromY = (y) => {
     const pct = y / containerH
     return Math.round((openMin + pct * totalMin) / 30) * 30  // snap to 30min
@@ -137,7 +143,7 @@ function TimelineView({ appointments, stylists, selectedDate, shopSettings, onMo
     const y = e.clientY - rect.top
     const newMin = getMinFromY(Math.max(0, Math.min(y, containerH - 1)))
     
-    // Check quá khứ
+    // ✅ FIX: isToday đã được khai báo ở trên, không còn undefined
     const isPastDate = dayjs(selectedDate).isBefore(dayjs(), 'day')
     if (isPastDate || (isToday && newMin < nowMin)) {
       message.warning('Không thể đặt lịch vào thời gian trong quá khứ!')
@@ -148,12 +154,6 @@ function TimelineView({ appointments, stylists, selectedDate, shopSettings, onMo
     const m = String(newMin % 60).padStart(2, '0')
     onNewApt(stylist, `${h}:${m}`)
   }
-
-  // Now line
-  const now = dayjs()
-  const nowMin = now.hour() * 60 + now.minute()
-  const isToday = selectedDate === now.format('YYYY-MM-DD')
-  const nowTop = ((nowMin - openMin) / totalMin) * containerH
 
   return (
     <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
@@ -530,9 +530,12 @@ export default function Booking() {
     } catch { setBusySlots({}) }
     finally { setLoading(false) }
   }
+  // ✅ FIX LOGIC-8: Thêm try/catch cho loadAppointments
   const loadAppointments = async () => {
-    const r = await api.get('/api/appointments', { params: { date_from: selectedDate, date_to: selectedDate } })
-    setAppointments(r.data)
+    try {
+      const r = await api.get('/api/appointments', { params: { date_from: selectedDate, date_to: selectedDate } })
+      setAppointments(r.data)
+    } catch { /* silent - không crash app */ }
   }
 
   // Mở form đặt lịch từ timeline click
@@ -542,6 +545,10 @@ export default function Booking() {
     setPreSelectedStylist(stylist)
     setSelectedSlot(slot)
     setSelectedStylist(stylist.id)
+    // ✅ FIX UX-2: Reset form cũ trước khi mở modal
+    setCustomerName('')
+    setCustomerPhone('')
+    setNote('')
     setView('book')
     setTimeout(() => setConfirmModal(true), 100)
   }
@@ -568,6 +575,8 @@ export default function Booking() {
 
   const handleBook = async () => {
     if (!customerName.trim()) return message.warning('Nhập tên khách hàng!')
+    // ✅ FIX BOOKING-2: Validate selectedSlot trước khi gửi
+    if (!selectedSlot) return message.warning('Vui lòng chọn khung giờ!')
     setSubmitting(true)
     try {
       const stylist = stylists.find(s => s.id === selectedStylist)
@@ -590,22 +599,32 @@ export default function Booking() {
       loadAvailability(); loadAppointments()
       setView('timeline')
     } catch (e) {
-      console.error(e);
+      console.error(e)
       message.error(e.response?.data?.error || e.response?.data?.msg || e.message || 'Lỗi đặt lịch')
     } finally { setSubmitting(false) }
   }
 
+  // ✅ FIX LOGIC-3: Thêm try/catch cho updateStatus
   const updateStatus = async (id, status) => {
-    await api.put(`/api/appointments/${id}`, { status })
-    message.success('Đã cập nhật!')
-    loadAppointments(); loadAvailability()
-    if (aptDetailModal?.id === id) setAptDetailModal(a => ({ ...a, status }))
+    try {
+      await api.put(`/api/appointments/${id}`, { status })
+      message.success('Đã cập nhật!')
+      loadAppointments(); loadAvailability()
+      if (aptDetailModal?.id === id) setAptDetailModal(a => ({ ...a, status }))
+    } catch (e) {
+      message.error(e.response?.data?.error || 'Lỗi cập nhật trạng thái')
+    }
   }
+  // ✅ FIX LOGIC-4: Thêm try/catch cho cancelApt
   const cancelApt = async (id) => {
-    await api.delete(`/api/appointments/${id}`)
-    message.success('Đã hủy lịch')
-    loadAppointments(); loadAvailability()
-    setAptDetailModal(null)
+    try {
+      await api.delete(`/api/appointments/${id}`)
+      message.success('Đã hủy lịch')
+      loadAppointments(); loadAvailability()
+      setAptDetailModal(null)
+    } catch (e) {
+      message.error(e.response?.data?.error || 'Lỗi hủy lịch')
+    }
   }
 
 

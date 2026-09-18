@@ -37,10 +37,13 @@ function makeVietQRUrl({ bankName, accountNo, accountName, amount, note }) {
     'eximbank': 'EIB', 'dongabank': 'DAB',
   }
   const bk = BANK_MAP[bankName?.toLowerCase()?.trim()] || bankName?.toUpperCase() || 'MB'
-  const amtParam = amount ? `&amount=${Math.round(amount)}` : ''
-  const noteParam = note ? `&addInfo=${encodeURIComponent(note)}` : ''
-  const nameParam = accountName ? `&accountName=${encodeURIComponent(accountName)}` : ''
-  return `https://img.vietqr.io/image/${bk}-${accountNo}-compact2.png?${amtParam}${noteParam}${nameParam}`
+  // ✅ FIX CRITICAL-NEW-2: Dùng URLSearchParams để tránh "?&" sai format
+  const params = new URLSearchParams()
+  if (amount) params.append('amount', Math.round(amount))
+  if (note) params.append('addInfo', note)
+  if (accountName) params.append('accountName', accountName)
+  const qs = params.toString()
+  return `https://img.vietqr.io/image/${bk}-${accountNo}-compact2.png${qs ? '?' + qs : ''}`
 }
 
 function VietQRPanel({ amount, orderNote, shopSettings }) {
@@ -153,16 +156,21 @@ export default function POS() {
   useEffect(() => { loadData() }, [])
 
   const loadData = async () => {
-    const [p, c, s, staff] = await Promise.all([
-      api.get('/api/products'),
-      api.get('/api/categories'),
-      api.get('/api/settings').catch(() => ({ data: {} })),
-      api.get('/api/staff').catch(() => ({ data: [] })),
-    ])
-    setProducts(p.data)
-    setCategories(c.data)
-    setShopSettings(s.data)
-    setStaffList((staff.data || []).filter(u => u.is_active))
+    // ✅ FIX LOGIC-6: Thêm try/catch cho loadData
+    try {
+      const [p, c, s, staff] = await Promise.all([
+        api.get('/api/products'),
+        api.get('/api/categories'),
+        api.get('/api/settings').catch(() => ({ data: {} })),
+        api.get('/api/staff').catch(() => ({ data: [] })),
+      ])
+      setProducts(p.data)
+      setCategories(c.data)
+      setShopSettings(s.data)
+      setStaffList((staff.data || []).filter(u => u.is_active))
+    } catch (e) {
+      message.error('Lỗi tải dữ liệu. Vui lòng làm mới trang!')
+    }
   }
 
   const searchCustomers = async (q) => {
@@ -196,12 +204,23 @@ export default function POS() {
   })
 
   const addToCart = (product) => {
+    // ✅ FIX INPUT-1: Cảnh báo khi sắp hết hàng/hết hàng
+    if (product.track_stock && product.stock_qty <= 0) {
+      message.warning(`⚠️ ${product.name} đã hết hàng!`)
+      return
+    }
     setCart(prev => {
       const existing = prev.find(i => i.product_id === product.id)
+      // Kiểm tra không vượt tồn kho
+      if (product.track_stock && existing && existing.qty >= product.stock_qty) {
+        message.warning(`⚠️ Chỉ còn ${product.stock_qty} ${product.unit || 'cái'} trong kho!`)
+        return prev
+      }
       if (existing) return prev.map(i => i.product_id === product.id ? { ...i, qty: i.qty + 1 } : i)
       return [...prev, {
         product_id: product.id, product_name: product.name,
         unit: product.unit, price: product.price, cost: product.cost,
+        is_service: product.is_service,
         qty: 1, discount_amount: 0
       }]
     })
@@ -224,6 +243,10 @@ export default function POS() {
 
   const handleCheckout = async () => {
     if (cart.length === 0) return message.warning('Giỏ hàng trống!')
+    // ✅ FIX POS-1: Validate paid_amount khi thanh toán tiền mặt
+    if (payMethod === 'cash' && (!paidAmount || paidAmount <= 0)) {
+      return message.warning('Vui lòng nhập số tiền khách đưa!')
+    }
     setLoading(true)
     try {
       // Build items với thợ chính/phụ từng item
@@ -292,7 +315,7 @@ export default function POS() {
       <div style={{ padding: '10px 12px 0', background: '#fff', borderBottom: '1px solid #f0f0f0' }}>
         <Input
           prefix={<SearchOutlined style={{ color: '#ccc' }} />}
-          placeholder="Tim san pham, dich vu..."
+          placeholder="Tìm sản phẩm, dịch vụ..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={{ marginBottom: 8, fontSize: 16 }}
@@ -303,7 +326,7 @@ export default function POS() {
             cursor: 'pointer', flexShrink: 0, padding: '4px 12px', borderRadius: 20, fontSize: 13,
             background: !catFilter ? 'linear-gradient(135deg, #667eea, #764ba2)' : '#f5f5f5',
             color: !catFilter ? '#fff' : '#555', border: 'none'
-          }}>Tat ca</Tag>
+          }}>Tất cả</Tag>
           {categories.map(c => (
             <Tag key={c.id} onClick={() => setCatFilter(catFilter === c.id ? null : c.id)} style={{
               cursor: 'pointer', flexShrink: 0, padding: '4px 12px', borderRadius: 20, fontSize: 13,
@@ -316,7 +339,7 @@ export default function POS() {
 
       <div style={{ flex: 1, overflow: 'auto', padding: '10px 10px 0' }}>
         {filtered.length === 0
-          ? <Empty description="Khong tim thay san pham" style={{ marginTop: 40 }} />
+          ? <Empty description="Không tìm thấy sản phẩm" style={{ marginTop: 40 }} />
           : <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {filtered.map(product => {
                 const inCart = cart.find(i => i.product_id === product.id)
@@ -355,18 +378,18 @@ export default function POS() {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '0 18px', cursor: 'pointer', boxShadow: '0 4px 16px rgba(102,126,234,0.5)'
           }}>
-            <span>🛒 Gio hang ({cartCount})</span>
+            <span>🛒 Giỏ hàng ({cartCount})</span>
             <span style={{ background: 'rgba(255,255,255,0.2)', padding: '4px 12px', borderRadius: 20, fontSize: 15 }}>{fmtMoney(subtotal)}</span>
           </button>
         </div>
       )}
 
       <Drawer
-        title={<span>🛒 Gio hang <Tag color="purple">{cartCount} mon</Tag></span>}
-        placement="bottom" height="82dvh"
+        title={<span>🛒 Giỏ hàng <Tag color="purple">{cartCount} món</Tag></span>}
+        placement="bottom" height="82vh"
         open={cartOpen} onClose={() => setCartOpen(false)}
         styles={{ body: { padding: 0 }, header: { padding: '14px 16px' } }}
-        extra={<span style={{ color: '#999', fontSize: 12, cursor: 'pointer' }} onClick={() => { setCart([]); setCartOpen(false) }}>Xoa tat ca</span>}
+        extra={<span style={{ color: '#999', fontSize: 12, cursor: 'pointer' }} onClick={() => { setCart([]); setCartOpen(false) }}>Xóa tất cả</span>}
       >
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           <div style={{ flex: 1, overflow: 'auto', padding: '8px 14px' }}>
@@ -378,7 +401,8 @@ export default function POS() {
               return (
                 <div key={item.product_id} style={{ padding: '10px 0', borderBottom: '1px solid #f5f5f5' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ fontSize: 22 }}>✂️</div>
+                    {/* ✅ FIX UI-2: Dùng icon đúng cho dịch vụ vs hàng hóa */}
+                    <div style={{ fontSize: 22 }}>{item.is_service ? '✂️' : '📦'}</div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: 600 }}>{item.product_name}</div>
                       <div style={{ fontSize: 13, color: '#667eea', fontWeight: 600 }}>{fmtMoney(item.price)}</div>
@@ -481,7 +505,7 @@ export default function POS() {
 
           <div style={{ padding: '12px 14px', background: '#fff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-              <span style={{ fontSize: 16, fontWeight: 600 }}>Tong cong:</span>
+              <span style={{ fontSize: 16, fontWeight: 600 }}>Tổng cộng:</span>
               <span style={{ fontSize: 20, fontWeight: 800, color: '#ff4d4f' }}>{fmtMoney(subtotal)}</span>
             </div>
             <button onClick={openCheckout} style={{
@@ -490,27 +514,29 @@ export default function POS() {
               border: 'none', borderRadius: 14, color: '#fff', fontSize: 17, fontWeight: 700,
               cursor: 'pointer', boxShadow: '0 4px 16px rgba(102,126,234,0.4)'
             }}>
-              💳 Thanh toan {fmtMoney(subtotal)}
+              💳 Thanh toán {fmtMoney(subtotal)}
             </button>
           </div>
         </div>
       </Drawer>
 
       <Modal
-        title="💳 Xac nhan thanh toan"
-        open={payModal} onCancel={() => setPayModal(false)}
-        onOk={handleCheckout} okText="✅ Xac nhan" cancelText="Huy"
+        title="💳 Xác nhận thanh toán"
+        open={payModal}
+        // ✅ FIX POS-3: Reset payMethod về 'cash' khi đóng modal
+        onCancel={() => { setPayModal(false); setPayMethod('cash') }}
+        onOk={handleCheckout} okText="✅ Xác nhận" cancelText="Hủy"
         confirmLoading={loading} centered
         okButtonProps={{ style: { height: 44, fontSize: 15, fontWeight: 600 } }}
       >
         <div style={{ padding: '8px 0' }}>
           <div style={{ background: '#f0f5ff', borderRadius: 12, padding: '14px 16px', textAlign: 'center', marginBottom: 16 }}>
-            <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>Tong tien</div>
+            <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>Tổng tiền</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#ff4d4f' }}>{fmtMoney(subtotal)}</div>
           </div>
 
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Hinh thuc thanh toan:</div>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Hình thức thanh toán:</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
               {PAY_METHODS.map(m => (
                 <button key={m.value} onClick={() => setPayMethod(m.value)} style={{
@@ -526,12 +552,14 @@ export default function POS() {
 
           {payMethod === 'cash' && (
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Tien khach dua:</div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Tiền khách đưa:</div>
+              {/* ✅ FIX INPUT-6: Thêm precision=0 để không nhập số thập phân */}
               <InputNumber style={{ width: '100%', fontSize: 18, height: 48 }}
                 value={paidAmount} onChange={v => setPaidAmount(v || 0)}
-                min={0} step={10000}
-                formatter={v => '' + v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={v => v.replace(/,/g, '')}
+                min={0} step={10000} precision={0}
+                formatter={v => '' + Number(v).toLocaleString('vi-VN')}
+                parser={v => v.replace(/[^0-9]/g, '')}
+                autoFocus
               />
               <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                 {[50000, 100000, 200000, 500000].map(amt => (
@@ -549,11 +577,16 @@ export default function POS() {
                   background: paidAmount === subtotal ? '#667eea' : '#f0f5ff',
                   color: paidAmount === subtotal ? '#fff' : '#667eea',
                   fontSize: 12, cursor: 'pointer', fontWeight: 700
-                }}>Dung tien</button>
+                }}>Đúng tiền</button>
               </div>
               {paidAmount >= subtotal && (
                 <div style={{ marginTop: 8, padding: '8px 12px', background: '#f6ffed', borderRadius: 8, color: '#52c41a', fontWeight: 600 }}>
-                  💰 Tien thoi: {fmtMoney(paidAmount - subtotal)}
+                  💰 Tiền thối: {fmtMoney(paidAmount - subtotal)}
+                </div>
+              )}
+              {paidAmount > 0 && paidAmount < subtotal && (
+                <div style={{ marginTop: 8, padding: '8px 12px', background: '#fff2f0', borderRadius: 8, color: '#ff4d4f', fontWeight: 600 }}>
+                  ⚠️ Thiếu: {fmtMoney(subtotal - paidAmount)}
                 </div>
               )}
             </div>
@@ -562,7 +595,7 @@ export default function POS() {
           {payMethod === 'transfer' && (
             <div style={{ marginTop: 4 }}>
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: '#667eea' }}>
-                🏦 Ma QR chuyen khoan VietQR
+                🏦 Mã QR chuyển khoản VietQR
               </div>
               <VietQRPanel amount={subtotal} orderNote={tempOrderNote} shopSettings={shopSettings} />
             </div>
@@ -570,7 +603,7 @@ export default function POS() {
 
           {payMethod === 'debt' && (
             <div style={{ padding: '10px 14px', background: '#fff7e6', borderRadius: 10, border: '1px solid #ffd591', fontSize: 13, color: '#874d00' }}>
-              📋 Don hang se duoc ghi vao cong no khach hang. Thanh toan sau.
+              📋 Đơn hàng sẽ được ghi vào công nợ khách hàng. Thanh toán sau.
             </div>
           )}
         </div>

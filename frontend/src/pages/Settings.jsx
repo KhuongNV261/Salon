@@ -184,6 +184,14 @@ export default function Settings({ setShopInfo, shopInfo }) {
 
   const handleSave = async () => {
     if (!canEdit) return
+    // ✅ FIX UI-7: Validate giờ đóng cửa phải sau giờ mở cửa
+    const [oh, om] = form.open_time.split(':').map(Number)
+    const [ch, cm] = form.close_time.split(':').map(Number)
+    const openMin = oh * 60 + om
+    const closeMin = ch * 60 + cm
+    if (closeMin <= openMin) {
+      return message.error('⚠️ Giờ đóng cửa phải sau giờ mở cửa!')
+    }
     setSaving(true)
     try {
       await api.put('/api/settings', form)
