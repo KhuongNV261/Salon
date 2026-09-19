@@ -51,7 +51,8 @@ const STYLIST_COLORS = [
    DATE TABS
 ───────────────────────────────────────── */
 function DateTabs({ selected, onChange }) {
-  const days = Array.from({ length: 7 }, (_, i) => dayjs().add(i - 1, 'day'))
+  // ✅ FIX UX-6: Mở rộng từ 7 ngày lên 14 ngày để đặt lịch xa hơn
+  const days = Array.from({ length: 14 }, (_, i) => dayjs().add(i - 1, 'day'))
   const names = { 0: 'Hôm qua', 1: 'Hôm nay', 2: 'Ngày mai' }
   return (
     <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>

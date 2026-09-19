@@ -128,7 +128,15 @@ export default function POS() {
   const { user } = useStore()
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
-  const [cart, setCart] = useState([])
+  // ✅ FIX LOGIC-7: Khởi tạo cart từ localStorage để không mất khi refresh
+  const [cart, setCart] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pos_cart')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
+  // ✅ FIX NEW-4: Thêm filter loại sản phẩm (tất cả / hàng hóa / dịch vụ)
+  const [typeFilter, setTypeFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState(null)
   const [cartOpen, setCartOpen] = useState(false)
@@ -154,6 +162,13 @@ export default function POS() {
   const printRef = useRef()
 
   useEffect(() => { loadData() }, [])
+
+  // ✅ FIX LOGIC-7: Lưu cart vào localStorage mỗi khi cart thay đổi
+  useEffect(() => {
+    try {
+      localStorage.setItem('pos_cart', JSON.stringify(cart))
+    } catch {}
+  }, [cart])
 
   const loadData = async () => {
     // ✅ FIX LOGIC-6: Thêm try/catch cho loadData
@@ -196,10 +211,15 @@ export default function POS() {
     else setItemAssistStaff(p => ({ ...p, [product_id]: val }))
   }
 
+  // ✅ FIX NEW-4: Bỏ filter cứng is_service, thêm typeFilter linh hoạt
   const filtered = products.filter(p => {
     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase())
     const matchCat = !catFilter || p.category_id === catFilter
-    const matchType = !p.is_service   // Chỉ hiện Hàng hóa, không hiện Dịch vụ
+    const matchType = typeFilter === 'all'
+      ? true
+      : typeFilter === 'service'
+        ? p.is_service
+        : !p.is_service
     return matchSearch && matchCat && matchType
   })
 
@@ -280,6 +300,8 @@ export default function POS() {
         setPrintModal(true)
       } catch {}
       setCart([])
+      // ✅ FIX LOGIC-7: Xóa localStorage sau khi thanh toán xong
+      try { localStorage.removeItem('pos_cart') } catch {}
       setCustomerName('')
       setSelectedCustomerId(null)
       setSelectedStaff(null)
@@ -300,6 +322,11 @@ export default function POS() {
     const content = printRef.current
     if (!content) return
     const w = window.open('', '_blank', 'width=400,height=600')
+    // ✅ FIX POS-4: Kiểm tra popup bị chặn
+    if (!w) {
+      message.warning('⚠️ Trình duyệt đang chặn popup! Vui lòng cho phép popup để in hóa đơn.')
+      return
+    }
     w.document.write('<html><head><title>Hoa don</title><style>* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: monospace; font-size: 12px; width: 300px; padding: 8px; } .center { text-align: center; } .bold { font-weight: bold; } .line { border-top: 1px dashed #000; margin: 6px 0; } .row { display: flex; justify-content: space-between; margin: 2px 0; } .big { font-size: 15px; font-weight: bold; }</style></head><body>' + content.innerHTML + '</body></html>')
     w.document.close()
     w.focus()
@@ -321,6 +348,16 @@ export default function POS() {
           style={{ marginBottom: 8, fontSize: 16 }}
           allowClear
         />
+        {/* ✅ FIX NEW-4: Thêm filter Hàng hóa / Dịch vụ */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+          {[{ key: 'all', label: '🏪 Tất cả' }, { key: 'product', label: '📦 Hàng hóa' }, { key: 'service', label: '✂️ Dịch vụ' }].map(t => (
+            <Tag key={t.key} onClick={() => setTypeFilter(t.key)} style={{
+              cursor: 'pointer', flexShrink: 0, padding: '3px 10px', borderRadius: 16, fontSize: 12,
+              background: typeFilter === t.key ? 'linear-gradient(135deg, #764ba2, #f093fb)' : '#f0f0f0',
+              color: typeFilter === t.key ? '#fff' : '#666', border: 'none', fontWeight: typeFilter === t.key ? 700 : 400,
+            }}>{t.label}</Tag>
+          ))}
+        </div>
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 10, scrollbarWidth: 'none' }}>
           <Tag onClick={() => setCatFilter(null)} style={{
             cursor: 'pointer', flexShrink: 0, padding: '4px 12px', borderRadius: 20, fontSize: 13,
