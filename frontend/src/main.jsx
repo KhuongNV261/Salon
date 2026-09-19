@@ -9,7 +9,7 @@ import 'antd/dist/reset.css'
 import './index.css'
 
 // ─── Subdomain redirect ────────────────────────────────────────
-// Khi truy cập qua subdomain (vd: thanhthanh.khuong2601.io.vn)
+// Khi truy cập qua subdomain (vd: thanhthanh.aureliasalon.online)
 // → slug đã nằm trong subdomain, KHÔNG thêm vào path
 // → path sạch: /login, /booking, /booking/public, v.v.
 const subdomainSlug = getSlugFromSubdomain()

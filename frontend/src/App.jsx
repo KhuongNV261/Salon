@@ -23,6 +23,7 @@ import PublicBooking from './pages/PublicBooking'
 import LandingPage from './pages/LandingPage'
 import SuperAdminLogin from './pages/SuperAdminLogin'
 import SuperAdminDashboard from './pages/SuperAdminDashboard'
+import Register from './pages/Register'
 import useStore from './store'
 import api from './api'
 import { getSlugFromSubdomain } from './slug'
@@ -323,17 +324,18 @@ function MobileLayout({ children, shopInfo }) {
       <header className="mobile-header">
         <div className="mobile-header-left">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <img
-              src="/icon.png"
-              alt="Aurelia Salon"
-              style={{ height: 36, width: 36, objectFit: 'cover', borderRadius: 8 }}
-            />
+            {shopInfo?.logo_url ? (
+              <img
+                src={shopInfo.logo_url}
+                alt={shopInfo.name}
+                style={{ height: 36, width: 36, objectFit: 'cover', borderRadius: '50%' }}
+              />
+            ) : (
+              <div style={{ height: 36, width: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>💈</div>
+            )}
             <div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: '#c9956c', letterSpacing: 0.5, lineHeight: 1.1, fontFamily: "'Cormorant Garamond', serif" }}>
-                AURELIA SALON
-              </div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: 1 }}>
-                BEAUTY & WELLNESS
+              <div className="header-shop-name" style={{ fontSize: 13, fontWeight: 800, color: '#fff', letterSpacing: 0.5, lineHeight: 1.2, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {shopInfo?.name || 'AURELIA SALON'}
               </div>
             </div>
           </div>
@@ -429,7 +431,7 @@ function MobileLayout({ children, shopInfo }) {
 }
 
 // ─── ShopLoader: resolve slug → shop info ──────────────────
-const VALID_THEMES = ['classic', 'nature', 'luxury', 'cute']
+const VALID_THEMES = ['classic', 'nature', 'luxury', 'cute', 'christmas', 'tet', 'midautumn', 'independence', 'hungking']
 
 function ShopLoader({ overrideSlug } = {}) {
   const params = useParams()
@@ -588,6 +590,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<RootRedirect />} />
+      <Route path="/dang-ky" element={<Register />} />
       <Route path="/super-admin" element={<SuperAdminLogin />} />
       <Route path="/super-admin/dashboard" element={<SuperAdminDashboard />} />
       <Route path="/:slug/*" element={<ShopLoader />} />

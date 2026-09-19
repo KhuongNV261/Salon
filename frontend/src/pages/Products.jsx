@@ -58,10 +58,15 @@ export default function Products() {
     }
   }
 
+  // ✅ FIX LOGIC-5: Thêm try/catch cho deleteProd
   const deleteProd = async (id) => {
-    await api.delete(`/api/products/${id}`)
-    message.success('Đã xóa!')
-    load()
+    try {
+      await api.delete(`/api/products/${id}`)
+      message.success('Đã xóa!')
+      load()
+    } catch (e) {
+      message.error(e.response?.data?.error || 'Không thể xóa sản phẩm. Có thể đang được sử dụng!')
+    }
   }
 
   // ===== CATEGORY HANDLERS =====
@@ -91,10 +96,15 @@ export default function Products() {
     }
   }
 
+  // ✅ FIX LOGIC-5: Thêm try/catch cho deleteCat
   const deleteCat = async (id) => {
-    await api.delete(`/api/categories/${id}`)
-    message.success('Đã xóa danh mục!')
-    load()
+    try {
+      await api.delete(`/api/categories/${id}`)
+      message.success('Đã xóa danh mục!')
+      load()
+    } catch (e) {
+      message.error(e.response?.data?.error || 'Không thể xóa danh mục. Có sản phẩm đang dùng danh mục này!')
+    }
   }
 
   const prodColumns = [

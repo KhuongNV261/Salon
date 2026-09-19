@@ -13,10 +13,14 @@ routes = [
 directory = "./frontend/dist"
 not_found_handling = "single-page-application"
 
-# Build configuration
-[build]
-command = "cd frontend && npm install && npm run build"
 
-# Environment variables cho build
 [vars]
 VITE_API_URL = "https://salon-p2ww.onrender.com"
+
+# Cấu hình riêng cho môi trường staging (nhánh staging)
+# URL truy cập: https://salon-staging.workers.dev
+[env.staging]
+name = "salon-staging"
+routes = []
+[env.staging.vars]
+VITE_API_URL = "https://salon-staging.onrender.com"

@@ -45,6 +45,10 @@ export default function Customers() {
   const [hairForm, setHairForm] = useState(null)
   const [hairSaving, setHairSaving] = useState(false)
   const [editingHair, setEditingHair] = useState(null)
+  // ✅ FIX UI-6: Thêm state sửa thông tin khách hàng
+  const [editModal, setEditModal] = useState(false)
+  const [editForm] = Form.useForm()
+  const [editSaving, setEditSaving] = useState(false)
   const [form] = Form.useForm()
   const searchTimer = useRef(null)
 
@@ -128,6 +132,39 @@ export default function Customers() {
     } catch (e) {
       message.error(e.response?.data?.error || 'Lỗi tạo khách hàng')
     }
+  }
+
+  // ✅ FIX UI-6: Xử lý sửa thông tin khách hàng
+  const openEditModal = () => {
+    editForm.setFieldsValue({
+      name: selected?.name || '',
+      phone: selected?.phone || '',
+      address: detail?.address || '',
+      note: detail?.note || '',
+    })
+    setEditModal(true)
+  }
+
+  const handleEditCustomer = async (vals) => {
+    if (!selected) return
+    setEditSaving(true)
+    try {
+      await api.put(`/api/customers/${selected.id}`, vals)
+      message.success('✅ Đã cập nhật thông tin khách hàng!')
+      editForm.resetFields()
+      setEditModal(false)
+      // Reload detail và danh sách
+      const [r1, r2] = await Promise.all([
+        api.get(`/api/customers/${selected.id}`),
+        api.get('/api/customers', { params: { q: search } }),
+      ])
+      setDetail(r1.data)
+      setCustomers(r2.data)
+      // Cập nhật selected
+      setSelected(prev => ({ ...prev, ...vals }))
+    } catch (e) {
+      message.error(e.response?.data?.error || 'Lỗi cập nhật khách hàng')
+    } finally { setEditSaving(false) }
   }
 
   const openOrderDetail = async (orderId) => {
@@ -264,6 +301,16 @@ export default function Customers() {
             <UserOutlined />
             <span>{selected?.name}</span>
             {detail?.debt > 0 && <Tag color="red">Nợ {fmtMoney(detail.debt)}</Tag>}
+            {/* ✅ FIX UI-6: Nút sửa thông tin khách hàng */}
+            <button
+              onClick={openEditModal}
+              style={{
+                marginLeft: 4, padding: '2px 10px', fontSize: 12,
+                background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                border: 'none', borderRadius: 8, color: '#fff',
+                cursor: 'pointer', fontWeight: 600,
+              }}
+            >✏️ Sửa</button>
           </div>
         }
         placement="bottom"
@@ -615,6 +662,36 @@ export default function Customers() {
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <Button onClick={() => { setAddModal(false); form.resetFields() }}>Hủy</Button>
             <Button type="primary" htmlType="submit">Lưu</Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* ✅ FIX UI-6: Modal sửa thông tin khách hàng */}
+      <Modal
+        title="✏️ Sửa thông tin khách hàng"
+        open={editModal}
+        onCancel={() => { setEditModal(false); editForm.resetFields() }}
+        footer={null}
+        maskClosable={false}
+      >
+        <Form form={editForm} layout="vertical" onFinish={handleEditCustomer}>
+          <Form.Item name="name" label="Họ tên" rules={[{ required: true, message: 'Nhập tên khách hàng' }]}>
+            <Input placeholder="Nguyễn Văn A" size="large" />
+          </Form.Item>
+          <Form.Item name="phone" label="Số điện thoại"
+            rules={[{ pattern: /^[0-9]{10,11}$/, message: 'SĐT phải 10-11 số' }]}
+          >
+            <Input placeholder="0901234567" />
+          </Form.Item>
+          <Form.Item name="address" label="Địa chỉ">
+            <Input placeholder="Địa chỉ (không bắt buộc)" />
+          </Form.Item>
+          <Form.Item name="note" label="Ghi chú">
+            <Input.TextArea rows={2} placeholder="Ghi chú..." />
+          </Form.Item>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <Button onClick={() => { setEditModal(false); editForm.resetFields() }}>Hủy</Button>
+            <Button type="primary" htmlType="submit" loading={editSaving}>💾 Lưu</Button>
           </div>
         </Form>
       </Modal>

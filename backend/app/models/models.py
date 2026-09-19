@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Boolean, DateTime, Numeric, Integer, Text, SmallInteger, Date, ForeignKey, ARRAY
+from sqlalchemy import Column, String, Boolean, DateTime, Numeric, Integer, Text, SmallInteger, Date, ForeignKey, ARRAY, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -31,6 +31,11 @@ class Tenant(Base):
     customers = relationship("Customer", back_populates="tenant")
     orders = relationship("Order", back_populates="tenant")
 
+    __table_args__ = (
+        Index("ix_tenants_status", "status"),
+        Index("ix_tenants_plan", "plan"),
+    )
+
 
 class User(Base):
     __tablename__ = "users"
@@ -49,6 +54,12 @@ class User(Base):
 
     tenant = relationship("Tenant", back_populates="users")
 
+    __table_args__ = (
+        Index("ix_users_tenant_id", "tenant_id"),
+        Index("ix_users_tenant_phone", "tenant_id", "phone"),         # Login nhanh theo số điện thoại
+        Index("ix_users_tenant_active", "tenant_id", "is_active"),    # Lọc nhân viên đang hoạt động
+    )
+
 
 class Category(Base):
     __tablename__ = "categories"
@@ -64,6 +75,11 @@ class Category(Base):
 
     tenant = relationship("Tenant", back_populates="categories")
     products = relationship("Product", back_populates="category")
+
+    __table_args__ = (
+        Index("ix_categories_tenant_id", "tenant_id"),
+        Index("ix_categories_tenant_active", "tenant_id", "is_active"),  # Lấy danh mục đang dùng
+    )
 
 
 class Product(Base):
@@ -92,6 +108,13 @@ class Product(Base):
     tenant = relationship("Tenant", back_populates="products")
     category = relationship("Category", back_populates="products")
 
+    __table_args__ = (
+        Index("ix_products_tenant_id", "tenant_id"),
+        Index("ix_products_tenant_category", "tenant_id", "category_id"),   # Lọc theo danh mục
+        Index("ix_products_tenant_active", "tenant_id", "is_active"),        # Lấy sản phẩm đang bán
+        Index("ix_products_tenant_code", "tenant_id", "code"),               # Tìm theo mã sản phẩm
+    )
+
 
 class Customer(Base):
     __tablename__ = "customers"
@@ -113,6 +136,13 @@ class Customer(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now())
 
     tenant = relationship("Tenant", back_populates="customers")
+
+    __table_args__ = (
+        Index("ix_customers_tenant_id", "tenant_id"),
+        Index("ix_customers_tenant_phone", "tenant_id", "phone"),           # Tìm khách theo SĐT nhanh
+        Index("ix_customers_tenant_active", "tenant_id", "is_active"),      # Lọc khách đang hoạt động
+        Index("ix_customers_tenant_last_visit", "tenant_id", "last_visit_at"),  # Báo cáo khách lâu không đến
+    )
 
 
 class Order(Base):
@@ -143,6 +173,15 @@ class Order(Base):
     tenant = relationship("Tenant", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 
+    __table_args__ = (
+        Index("ix_orders_tenant_created", "tenant_id", "created_at"),              # Báo cáo doanh thu theo ngày
+        Index("ix_orders_tenant_status", "tenant_id", "status"),                   # Lọc đơn theo trạng thái
+        Index("ix_orders_tenant_customer", "tenant_id", "customer_id"),            # Lịch sử mua hàng khách
+        Index("ix_orders_tenant_staff", "tenant_id", "staff_id"),                  # Thống kê doanh thu nhân viên
+        Index("ix_orders_tenant_deleted", "tenant_id", "is_deleted"),              # Lọc đơn chưa xóa
+        Index("ix_orders_tenant_no", "tenant_id", "order_no"),                     # Tìm đơn theo mã
+    )
+
 
 class OrderItem(Base):
     __tablename__ = "order_items"
@@ -163,3 +202,10 @@ class OrderItem(Base):
     note = Column(Text)
 
     order = relationship("Order", back_populates="items")
+
+    __table_args__ = (
+        Index("ix_order_items_order_id", "order_id"),                            # Lấy items của 1 đơn
+        Index("ix_order_items_tenant_id", "tenant_id"),                          # Query theo tiệm
+        Index("ix_order_items_tenant_product", "tenant_id", "product_id"),       # Thống kê bán chạy
+        Index("ix_order_items_tenant_staff", "tenant_id", "staff_id"),           # Hoa hồng nhân viên
+    )

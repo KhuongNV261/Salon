@@ -162,7 +162,8 @@ export default function Settings({ setShopInfo, shopInfo }) {
     name: '', address: '', phone: '',
     open_time: '08:00', close_time: '20:00', slot_interval: 30,
     theme: 'classic',
-    bank_name: '', bank_account_number: '', bank_account_name: '', bank_transfer_note: ''
+    bank_name: '', bank_account_number: '', bank_account_name: '', bank_transfer_note: '',
+    logo_url: '', login_bg_url: ''
   })
 
   const canEdit = ['owner', 'manager'].includes(user?.role)
@@ -183,11 +184,19 @@ export default function Settings({ setShopInfo, shopInfo }) {
 
   const handleSave = async () => {
     if (!canEdit) return
+    // ✅ FIX UI-7: Validate giờ đóng cửa phải sau giờ mở cửa
+    const [oh, om] = form.open_time.split(':').map(Number)
+    const [ch, cm] = form.close_time.split(':').map(Number)
+    const openMin = oh * 60 + om
+    const closeMin = ch * 60 + cm
+    if (closeMin <= openMin) {
+      return message.error('⚠️ Giờ đóng cửa phải sau giờ mở cửa!')
+    }
     setSaving(true)
     try {
       await api.put('/api/settings', form)
       message.success('✅ Đã lưu cài đặt!')
-      if (setShopInfo) setShopInfo(prev => ({ ...prev, theme: form.theme, name: form.name }))
+      if (setShopInfo) setShopInfo(prev => ({ ...prev, theme: form.theme, name: form.name, logo_url: form.logo_url, login_bg_url: form.login_bg_url }))
     } catch (e) {
       message.error(e.response?.data?.error || 'Lỗi lưu cài đặt!')
     } finally {
@@ -257,14 +266,100 @@ export default function Settings({ setShopInfo, shopInfo }) {
           <Select value={form.theme || 'classic'} onChange={v => update('theme', v)}
             disabled={!canEdit} style={{ width: '100%' }} size="large"
             options={[
-              { value: 'classic', label: '🟣 Classic – Tím / Navy (Chuyên nghiệp)' },
-              { value: 'nature',  label: '🟢 Nature – Xanh lá (Spa / Nail / Thư giãn)' },
-              { value: 'luxury',  label: '⚫ Luxury – Đen / Vàng (Cao cấp)' },
-              { value: 'cute',    label: '🩷 Cute – Hồng (Nữ tính / Beauty)' },
+              { value: 'classic',      label: '🟣 Classic – Tím / Navy (Chuyên nghiệp)' },
+              { value: 'nature',       label: '🟢 Nature – Xanh lá (Spa / Nail / Thư giãn)' },
+              { value: 'luxury',       label: '⚫ Luxury – Đen / Vàng (Cao cấp)' },
+              { value: 'cute',         label: '🩷 Cute – Hồng (Nữ tính / Beauty)' },
+              { label: '── Ngày lễ ──', disabled: true, value: '__divider__' },
+              { value: 'christmas',    label: '🎄 Giáng Sinh – Đỏ / Xanh / Vàng Gold' },
+              { value: 'tet',          label: '🧧 Tết Nguyên Đán – Đỏ rực / Vàng may mắn' },
+              { value: 'midautumn',    label: '🏮 Trung Thu – Cam ấm / Vàng trăng' },
+              { value: 'independence', label: '🇻🇳 Mùng 2/9 – Đỏ cờ / Vàng sao' },
+              { value: 'hungking',     label: '🏛️ Giỗ Tổ Hùng Vương – Đỏ thắm / Vàng cổ' },
             ]}
           />
         </FieldRow>
       </SettingGroup>
+
+      {/* ── Giao diện cửa tiệm ── */}
+      {canEdit && (
+        <SettingGroup icon="🎨" title="Giao diện cửa tiệm" subtitle="Logo và hình nền hiển thị khi đăng nhập">
+          {/* Logo */}
+          <FieldRow label="Logo tiệm" hint="Hiển thị trên trang đăng nhập và các màn hình khác">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              {form.logo_url ? (
+                <img src={form.logo_url} alt="logo" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'contain', flexShrink: 0, background: 'transparent' }} />
+              ) : (
+                <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'linear-gradient(135deg,#667eea,#764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>💈</div>
+              )}
+              <div style={{ flex: 1 }}>
+                <label style={{
+                  display: 'block', width: '100%', padding: '10px 0',
+                  border: '1.5px dashed #d1d5db', borderRadius: 10,
+                  textAlign: 'center', cursor: 'pointer', fontSize: 13,
+                  color: '#667eea', fontWeight: 600, background: '#f8f9ff'
+                }}>
+                  📷 Chọn ảnh logo
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    if (file.size > 500 * 1024) return message.warning('Logo quá lớn! Vui lòng chọn ảnh dưới 500KB')
+                    const reader = new FileReader()
+                    reader.onload = ev => update('logo_url', ev.target.result)
+                    reader.readAsDataURL(file)
+                  }} />
+                </label>
+                {form.logo_url && (
+                  <button onClick={() => update('logo_url', '')} style={{ marginTop: 6, fontSize: 12, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>✕ Xóa logo</button>
+                )}
+              </div>
+            </div>
+          </FieldRow>
+
+          {/* Hình nền đăng nhập */}
+          <FieldRow label="Hình nền trang đăng nhập" hint="Hiển thị phía sau form đăng nhập của tiệm">
+            <div style={{ borderRadius: 12, overflow: 'hidden', border: '1.5px solid #e5e7eb' }}>
+              {form.login_bg_url ? (
+                <div style={{ position: 'relative' }}>
+                  <img src={form.login_bg_url} alt="bg" style={{ width: '100%', height: 120, objectFit: 'cover', display: 'block' }} />
+                  <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
+                    <label style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', borderRadius: 8, padding: '5px 10px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+                      Đổi ảnh
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        if (file.size > 2 * 1024 * 1024) return message.warning('Hình nền quá lớn! Chọn ảnh dưới 2MB')
+                        const reader = new FileReader()
+                        reader.onload = ev => update('login_bg_url', ev.target.result)
+                        reader.readAsDataURL(file)
+                      }} />
+                    </label>
+                    <button onClick={() => update('login_bg_url', '')} style={{ background: 'rgba(239,68,68,0.8)', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 10px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Xóa</button>
+                  </div>
+                </div>
+              ) : (
+                <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 100, cursor: 'pointer', background: '#f8f9ff', gap: 6 }}>
+                  <span style={{ fontSize: 28 }}>🖼️</span>
+                  <span style={{ fontSize: 13, color: '#667eea', fontWeight: 600 }}>Chọn hình nền</span>
+                  <span style={{ fontSize: 11, color: '#9ca3af' }}>JPG, PNG — tối đa 2MB</span>
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    if (file.size > 2 * 1024 * 1024) return message.warning('Hình nền quá lớn! Chọn ảnh dưới 2MB')
+                    const reader = new FileReader()
+                    reader.onload = ev => update('login_bg_url', ev.target.result)
+                    reader.readAsDataURL(file)
+                  }} />
+                </label>
+              )}
+            </div>
+          </FieldRow>
+
+          <PrimaryBtn onClick={handleSave} loading={saving} color="purple">
+            {saving ? 'Đang lưu...' : '💾 Lưu giao diện'}
+          </PrimaryBtn>
+        </SettingGroup>
+      )}
 
       {/* ── Lịch làm việc ── */}
       <SettingGroup icon="🕐" title="Lịch làm việc" subtitle="Khung giờ phục vụ và đặt lịch">

@@ -1,6 +1,17 @@
 import os, uuid
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 from datetime import datetime as dt
+from datetime import datetime as _dt
+
+# Múi giờ Việt Nam UTC+7
+VN_TZ = timezone(timedelta(hours=7))
+
+def parse_apt_time(s):
+    """Parse appointment_time string. Nếu không có timezone thì gán UTC+7."""
+    dt_obj = datetime.fromisoformat(s)
+    if dt_obj.tzinfo is None:
+        dt_obj = dt_obj.replace(tzinfo=VN_TZ)
+    return dt_obj
 
 def to_date(s):
     """Convert 'YYYY-MM-DD' string to Python date — tránh lỗi psycopg3 date >= varchar"""
@@ -14,6 +25,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import create_engine, Column, String, Boolean, DateTime, Numeric, Integer, Text, SmallInteger, Date, ForeignKey, func, or_, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, relationship
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB
 
 load_dotenv()
@@ -55,7 +67,6 @@ class Tenant(Base):
     close_time = Column(String(5), default="20:00")
     slot_interval = Column(Integer, default=30)
     phone = Column(String(20))
-    logo_url = Column(String(500))
     slug = Column(String(50), unique=True)
 
 class User(Base):
@@ -620,8 +631,63 @@ def super_extend_tenant(tenant_id):
     finally:
         db.close()
 
+# ===== PUBLIC REGISTER (tự đăng ký tiệm mới) =====
+@app.post("/api/public/register")
+def public_register():
+    """Chủ tiệm tự đăng ký — không cần qua super admin"""
+    d = request.json or {}
+    required = ["tenant_name", "slug", "owner_name", "owner_phone", "owner_password"]
+    for f in required:
+        if not d.get(f):
+            return err(f"Thiếu thông tin: {f}", 400)
+
+    slug = d["slug"].lower().strip().replace(" ", "-")
+    # Validate slug: chỉ chứa chữ thường, số, dấu gạch ngang
+    import re
+    if not re.match(r'^[a-z0-9][a-z0-9\-]{1,48}[a-z0-9]$', slug):
+        return err("Đường dẫn chỉ được dùng chữ thường, số và dấu gạch ngang, tối thiểu 3 ký tự", 400)
+
+    db = get_db()
+    try:
+        if db.query(Tenant).filter(Tenant.slug == slug).first():
+            return err("Đường dẫn này đã có người dùng, vui lòng chọn tên khác", 400)
+        if db.query(User).filter(User.phone == d["owner_phone"]).first():
+            return err("Số điện thoại này đã được đăng ký", 400)
+
+        import datetime
+        t = Tenant(
+            name=d["tenant_name"],
+            slug=slug,
+            plan="trial",
+            status="active",
+            trial_ends_at=datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=7)
+        )
+        db.add(t)
+        db.flush()
+
+        u = User(
+            tenant_id=t.id,
+            name=d["owner_name"],
+            phone=d["owner_phone"],
+            password_hash=generate_password_hash(d["owner_password"]),
+            role="owner"
+        )
+        db.add(u)
+        db.commit()
+        return ok({
+            "message": "Tạo tiệm thành công! Dùng thử miễn phí 7 ngày.",
+            "slug": slug,
+            "tenant_id": str(t.id)
+        })
+    except Exception as e:
+        db.rollback()
+        return err(str(e), 500)
+    finally:
+        db.close()
+
 # ===== PUBLIC SHOP LOOKUP (không cần auth) =====
 @app.get("/api/public/shop/<slug>")
+
 def public_get_shop(slug):
     db = get_db()
     try:
@@ -646,7 +712,8 @@ def public_get_shop(slug):
             "slug": t.slug,
             "address": t.address or "",
             "phone": t.phone or "",
-            "logo_url": t.logo_url or "",
+            "logo_url": settings.get("logo_url", ""),
+            "login_bg_url": settings.get("login_bg_url", ""),
             "theme": settings.get("theme", "classic"),
             "features": t.features or {},
             "max_staff": t.max_staff if t.max_staff is not None else 10,
@@ -752,7 +819,7 @@ def public_create_appointment(slug):
         d = request.json
         apt_time_str = d.get("appointment_time")
         if not apt_time_str: return err("Thiếu thời gian đặt lịch", 400)
-        apt_time = datetime.fromisoformat(apt_time_str)
+        apt_time = parse_apt_time(apt_time_str)
         duration = int(d.get("duration_minutes", 60))
         stylist_id = d.get("stylist_id")
         stylist_name = d.get("stylist_name")
@@ -831,6 +898,8 @@ def get_settings():
             "address": t.address or "",
             "phone": t.phone or "",
             "slug": t.slug or "",
+            "logo_url": settings.get("logo_url", ""),
+            "login_bg_url": settings.get("login_bg_url", ""),
             "open_time": t.open_time or "08:00",
             "close_time": t.close_time or "20:00",
             "slot_interval": t.slot_interval or 30,
@@ -859,13 +928,16 @@ def update_settings():
             if field in d:
                 setattr(t, field, d[field])
         # Lưu các settings vào JSONB
-        settings_fields = ["theme", "bank_name", "bank_account_number", "bank_account_name", "bank_transfer_note"]
-        if any(f in d for f in settings_fields):
-            current_settings = dict(t.settings or {})
-            for sf in settings_fields:
-                if sf in d:
-                    current_settings[sf] = d[sf]
+        settings_fields = ["theme", "bank_name", "bank_account_number", "bank_account_name", "bank_transfer_note", "logo_url", "login_bg_url"]
+        current_settings = dict(t.settings or {})
+        changed = False
+        for sf in settings_fields:
+            if sf in d:
+                current_settings[sf] = d[sf]
+                changed = True
+        if changed:
             t.settings = current_settings
+            flag_modified(t, "settings")  # Bắt buộc SQLAlchemy nhận ra thay đổi JSONB
         db.commit()
         return ok({"message": "Cập nhật thành công"})
     finally:
@@ -1709,7 +1781,7 @@ def create_appointment():
     try:
         # Parse thời gian
         apt_time_str = d.get("appointment_time")
-        apt_time = datetime.fromisoformat(apt_time_str)
+        apt_time = parse_apt_time(apt_time_str)
         duration = int(d.get("duration_minutes", 60))
 
         stylist_id = d.get("stylist_id")
@@ -1795,7 +1867,7 @@ def update_appointment(apt_id):
         for field in ["status", "note", "stylist_id", "stylist_name", "duration_minutes"]:
             if field in d: setattr(a, field, d[field])
         if "appointment_time" in d:
-            a.appointment_time = datetime.fromisoformat(d["appointment_time"])
+            a.appointment_time = parse_apt_time(d["appointment_time"])
         db.commit()
         return ok({"message": "Cap nhat thanh cong"})
     finally:

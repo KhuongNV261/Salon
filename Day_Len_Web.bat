@@ -21,7 +21,7 @@ git push origin main
 
 echo ===================================================
 echo HOAN TAT!
-echo Web da duoc cap nhat tai: https://khuong2601.io.vn
-echo Tiem toc: https://tiemtocthanhthanh.khuong2601.io.vn
+echo Web da duoc cap nhat tai: https://aureliasalon.online
+echo Tiem toc: https://tiemtocthanhthanh.aureliasalon.online
 echo ===================================================
 pause

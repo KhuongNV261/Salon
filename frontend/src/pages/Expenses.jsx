@@ -384,17 +384,25 @@ export default function Expenses() {
           <Form.Item name="description" label="Mô tả chi phí">
             <Input placeholder="Ví dụ: Hóa đơn điện tháng 8" />
           </Form.Item>
-          <Form.Item name="amount" label="Số tiền (đ)" rules={[{ required: true, message: 'Nhập số tiền' }]}>
+          <Form.Item name="amount" label="Số tiền (đ)" rules={[
+            { required: true, message: 'Nhập số tiền' },
+            { type: 'number', min: 1, message: 'Số tiền phải lớn hơn 0' }
+          ]}>
             <InputNumber
               style={{ width: '100%' }}
               placeholder="500000"
-              min={0} step={10000}
+              min={1} step={10000}
               formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               parser={v => v.replace(/,/g, '')}
             />
           </Form.Item>
           <Form.Item name="expense_date" label="Ngày" rules={[{ required: true }]}>
-            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            {/* ✅ FIX INPUT-5: Disable ngày tương lai */}
+            <DatePicker
+              format="DD/MM/YYYY"
+              style={{ width: '100%' }}
+              disabledDate={(d) => d && d.isAfter(dayjs(), 'day')}
+            />
           </Form.Item>
         </Form>
       </Modal>
